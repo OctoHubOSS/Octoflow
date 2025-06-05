@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO webhooks (id, guild_id, comment, secret, created_by, last_updated_by) VALUES ($1, $2, $3, $4, $5, $6)",
+  "query": "INSERT INTO webhooks (id, guild_id, comment, secret, broken, created_by, last_updated_by) VALUES ($1, $2, $3, $4, $5, $6, $7)",
   "describe": {
     "columns": [],
     "parameters": {
@@ -9,11 +9,12 @@
         "Text",
         "Text",
         "Text",
+        "Bool",
         "Text",
         "Text"
       ]
     },
     "nullable": []
   },
-  "hash": "51408f003127a1f0abf24fa06ac13f3ce78bd1518ae8d6d3a9494e261f138b46"
+  "hash": "8f8092ef058a05cee47e23d2cd66eb0e8848b17e46b244d7ac96c16db50865f4"
 }
