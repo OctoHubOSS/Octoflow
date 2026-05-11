@@ -45,6 +45,8 @@ var SupportedEvents = map[string]func(bytes []byte) (*discordgo.MessageSend, err
 	"team":                        teamFn,
 	"fork":                        forkFn,
 	"page_build":                  pageBuildFn,
+	"code_scanning_alert":         codeScanningAlertFn,
+	"secret_scanning_alert":       secretScanningAlertFn,
 }
 
 type User struct {

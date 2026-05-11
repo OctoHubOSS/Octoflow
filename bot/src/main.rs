@@ -9,7 +9,7 @@ use serenity::gateway::ActivityData;
 use std::sync::Arc;
 
 mod help;
-mod core;
+mod commands;
 mod backups;
 mod config;
 mod eventmods;
@@ -143,13 +143,15 @@ async fn main() {
                 register(),
                 help::simplehelp(),
                 help::help(),
-                core::list(),
-                core::newhook(),
-                core::newrepo(),
-                core::delhook(),
-                core::delrepo(),
-                core::setrepochannel(),
-                core::resetsecret(),
+                commands::list(),
+                commands::newhook(),
+                commands::edithook(),
+                commands::newrepo(),
+                commands::editrepo(),
+                commands::delhook(),
+                commands::delrepo(),
+                commands::setrepochannel(),
+                commands::resetsecret(),
                 backups::backup(),
                 backups::restore(),
                 eventmods::eventmod(),

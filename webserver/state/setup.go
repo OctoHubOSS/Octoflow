@@ -90,9 +90,7 @@ func Setup() {
 
 	Logger.Info("Connected to all services successfully")
 
-	if v := os.Getenv("APPLY_MIGRATIONS"); v == "true" {
-		ApplyMigrations()
-	}
+	ApplyMigrations()
 }
 
 // Must be called when embedding, PrepareForEmbedding creates the table names from config and may do other setup
@@ -181,6 +179,8 @@ func ApplyMigrations() {
 		ALTER TABLE `+TableWebhookLogs+` ADD COLUMN IF NOT EXISTS guild_id TEXT NOT NULL REFERENCES `+TableGuilds+` (id) ON UPDATE CASCADE ON DELETE CASCADE;
 
 		ALTER TABLE `+TableWebhooks+` ADD COLUMN IF NOT EXISTS broken BOOLEAN NOT NULL DEFAULT false;
+		ALTER TABLE `+TableWebhooks+` ADD COLUMN IF NOT EXISTS provider TEXT NOT NULL DEFAULT 'github';
+		ALTER TABLE `+TableWebhooks+` ALTER COLUMN provider DROP NOT NULL;
 	`)
 
 	if err != nil {

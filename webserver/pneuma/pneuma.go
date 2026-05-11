@@ -130,12 +130,13 @@ func HandleEvents(
 	header string,
 	webhookId string,
 	guildId string,
+	provider string,
 ) {
 	// Ensure one at a time
 	l := state.MapMutex.Lock(webhookId)
 	defer l.Unlock()
 
-	updateLogEntries(logId, webhookId, guildId, "Processing event: "+header, "repoName="+rw.Repo.FullName, "webhookID="+webhookId, "event="+header, "logId="+logId)
+	updateLogEntries(logId, webhookId, guildId, "Processing event: "+header, "provider="+provider, "repoName="+rw.Repo.FullName, "webhookID="+webhookId, "event="+header, "logId="+logId)
 
 	// Check event modifiers
 	modres, err := eventmodifiers.CheckEventAllowed(webhookId, repoId, header)
@@ -169,7 +170,7 @@ func HandleEvents(
 		rows, err := state.Pool.Query(state.Context, "SELECT channel_id FROM "+state.TableRepos+" WHERE repo_name = $1 AND webhook_id = $2", strings.ToLower(rw.Repo.FullName), webhookId)
 
 		if err != nil {
-			updateLogEntries(logId, "Channel id fetch error: acl="+modres.ACLFail, "error="+err.Error())
+			updateLogEntries(logId, webhookId, guildId, "Channel id fetch error: acl="+modres.ACLFail, "error="+err.Error())
 			state.Logger.Error("Channel id fetch error", zap.Error(err), zap.String("repoName", rw.Repo.FullName), zap.String("webhookID", webhookId), zap.String("logId", logId))
 			return
 		}
@@ -182,7 +183,7 @@ func HandleEvents(
 			err = rows.Scan(&channelId)
 
 			if err != nil {
-				updateLogEntries(logId, "Channel id scan error: acl="+modres.ACLFail, "error="+err.Error())
+				updateLogEntries(logId, webhookId, guildId, "Channel id scan error: acl="+modres.ACLFail, "error="+err.Error())
 				state.Logger.Error("Channel id scan error", zap.Error(err), zap.String("repoName", rw.Repo.FullName), zap.String("webhookID", webhookId), zap.String("logId", logId))
 				continue
 			}
@@ -196,7 +197,15 @@ func HandleEvents(
 		return
 	}
 
-	evtFn, ok := events.SupportedEvents[header]
+	// Try provider-specific supported events first, then fall back
+	var evtFn func([]byte) (*discordgo.MessageSend, error)
+	var ok bool
+
+	if provider == "gitlab" {
+		evtFn, ok = events.GitLabSupportedEvents[header]
+	} else {
+		evtFn, ok = events.SupportedEvents[header]
+	}
 
 	var messageSend *discordgo.MessageSend
 
@@ -211,17 +220,80 @@ func HandleEvents(
 			return
 		}
 
-		var embed = discordgo.MessageEmbed{
-			Title:  cases.Title(language.English).String(strings.ReplaceAll(header, "_", " ")),
-			Fields: []*discordgo.MessageEmbedField{},
+		// Build a cleaner fallback embed instead of dumping raw map values
+		providerLabel := "GitHub"
+		if provider == "gitlab" {
+			providerLabel = "GitLab"
 		}
 
+		var embed = discordgo.MessageEmbed{
+			Title: cases.Title(language.English).String(strings.ReplaceAll(header, "_", " ")),
+			Color: 0x8b949e, // neutral gray for unknown events
+			Footer: &discordgo.MessageEmbedFooter{
+				Text: providerLabel + " · Unhandled Event",
+			},
+		}
+
+		// Extract meaningful top-level fields, skip complex nested objects
+		var embedFields []*discordgo.MessageEmbedField
 		for k, v := range fields {
-			embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
-				Name:  cases.Title(language.English).String(strings.ReplaceAll(k, "_", " ")),
-				Value: cases.Title(language.English).String(strings.ReplaceAll(fmt.Sprintf("%v", v), "_", " ")),
+			// Skip large nested objects that render as ugly map[...] dumps
+			switch v.(type) {
+			case map[string]any:
+				// For known important nested objects, extract key info
+				nested := v.(map[string]any)
+				if k == "sender" || k == "user" {
+					if login, ok := nested["login"].(string); ok {
+						embedFields = append(embedFields, &discordgo.MessageEmbedField{
+							Name:   "User",
+							Value:  login,
+							Inline: true,
+						})
+					} else if name, ok := nested["name"].(string); ok {
+						embedFields = append(embedFields, &discordgo.MessageEmbedField{
+							Name:   "User",
+							Value:  name,
+							Inline: true,
+						})
+					}
+				} else if k == "repository" || k == "project" {
+					if fullName, ok := nested["full_name"].(string); ok {
+						embedFields = append(embedFields, &discordgo.MessageEmbedField{
+							Name:   "Repository",
+							Value:  fullName,
+							Inline: true,
+						})
+					} else if name, ok := nested["name"].(string); ok {
+						embedFields = append(embedFields, &discordgo.MessageEmbedField{
+							Name:   "Repository",
+							Value:  name,
+							Inline: true,
+						})
+					}
+				}
+				// Skip other nested objects entirely
+				continue
+			case []any:
+				// Skip arrays (they render terribly)
+				continue
+			}
+
+			val := fmt.Sprintf("%v", v)
+			if val == "" || val == "<nil>" {
+				continue
+			}
+			if len(val) > 200 {
+				val = val[:200] + "..."
+			}
+
+			embedFields = append(embedFields, &discordgo.MessageEmbedField{
+				Name:   cases.Title(language.English).String(strings.ReplaceAll(k, "_", " ")),
+				Value:  val,
+				Inline: true,
 			})
 		}
+
+		embed.Fields = embedFields
 
 		messageSend = &discordgo.MessageSend{
 			Embeds: []*discordgo.MessageEmbed{&embed},
@@ -238,6 +310,12 @@ func HandleEvents(
 		}
 	}
 
+	if messageSend == nil {
+		updateLogEntries(logId, webhookId, guildId, "Error: event handler returned nil message")
+		state.Logger.Error("Event handler returned nil messageSend", zap.String("repoName", rw.Repo.FullName), zap.String("webhookID", webhookId), zap.String("event", header), zap.String("logId", logId))
+		return
+	}
+
 	for i, embed := range messageSend.Embeds {
 		messageSend.Embeds[i] = applyEmbedLimits(embed)
 	}
@@ -251,7 +329,7 @@ func HandleEvents(
 				Content: "Could not send event " + header + " to channel: <#" + channelId + ">:" + err.Error(),
 			})
 
-			updateLogEntries(logId, "Could not send event "+header+" to channel: channelId="+channelId, "err="+err.Error())
+			updateLogEntries(logId, webhookId, guildId, "Could not send event "+header+" to channel: channelId="+channelId, "err="+err.Error())
 		}
 	}
 }

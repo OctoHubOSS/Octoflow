@@ -12,12 +12,19 @@ import (
 
 // Precomputed values
 var eventList []string
+var glEventList []string
 
 func init() {
 	eventList = []string{}
 
 	for event := range events.SupportedEvents {
 		eventList = append(eventList, event)
+	}
+
+	glEventList = []string{}
+
+	for event := range events.GitLabSupportedEvents {
+		glEventList = append(glEventList, event)
 	}
 }
 
@@ -42,15 +49,22 @@ func ApiStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func ApiEventsListView(w http.ResponseWriter, r *http.Request) {
-	events := []string{}
+	ghEvents := []string{}
 
 	for _, event := range eventList {
-		events = append(events, "- "+event)
+		ghEvents = append(ghEvents, "- "+event)
 	}
 
-	w.Write([]byte(strings.Join(events, "\n")))
+	glEvents := []string{}
+
+	for _, event := range glEventList {
+		glEvents = append(glEvents, "- "+event)
+	}
+
+	w.Write([]byte("GitHub Events:\n" + strings.Join(ghEvents, "\n") + "\n\nGitLab Events:\n" + strings.Join(glEvents, "\n")))
 }
 
 func ApiEventsCommaSepView(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte(strings.Join(eventList, ",")))
+	w.Write([]byte("github:" + strings.Join(eventList, ",") + "\ngitlab:" + strings.Join(glEventList, ",")))
 }
+

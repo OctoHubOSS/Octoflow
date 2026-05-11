@@ -9,6 +9,7 @@ CREATE TABLE webhooks (
     comment TEXT NOT NULL, -- A comment to help identify the webhook
     broken BOOLEAN NOT NULL DEFAULT FALSE, 
     secret TEXT NOT NULL,
+    provider TEXT NOT NULL DEFAULT 'github', -- 'github' or 'gitlab'
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_by TEXT NOT NULL,
     last_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
