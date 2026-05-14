@@ -53,4 +53,4 @@ You should ideally make this 2 systemd services in production.
 
 ## License
 
-This project is licensed under the MIT License
+This project is licensed under the AGPL 3.0 License
