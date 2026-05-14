@@ -25,9 +25,8 @@ import (
 func formatBool(b bool) string {
 	if b {
 		return "true"
-	} else {
-		return "false"
 	}
+	return "false"
 }
 
 func GetWebhookRoute(w http.ResponseWriter, r *http.Request) {
@@ -193,7 +192,7 @@ func handleGitHubWebhook(w http.ResponseWriter, r *http.Request, bodyBytes []byt
 		return
 	}
 
-	if r.Header.Get("X-GitHub-Event") == "ping" {
+	if pneuma.NormalizeGitHubEventHeader(r.Header.Get("X-GitHub-Event")) == "ping" {
 		w.WriteHeader(200)
 		w.Write([]byte("pong"))
 		return
@@ -210,7 +209,7 @@ func handleGitHubWebhook(w http.ResponseWriter, r *http.Request, bodyBytes []byt
 		return
 	}
 
-	var header = r.Header.Get("X-GitHub-Event")
+	var header = pneuma.NormalizeGitHubEventHeader(r.Header.Get("X-GitHub-Event"))
 
 	// Get repo_name from database
 	var repoName string
@@ -218,9 +217,9 @@ func handleGitHubWebhook(w http.ResponseWriter, r *http.Request, bodyBytes []byt
 	err = state.Pool.QueryRow(state.Context, "SELECT id, repo_name FROM "+state.TableRepos+" WHERE repo_name = $1 AND webhook_id = $2", strings.ToLower(rw.Repo.FullName), id).Scan(&repoID, &repoName)
 
 	if err != nil {
-		state.Logger.Warn("This repository is not configured on git-logs, ignoring", zap.Error(err), zap.String("repoName", rw.Repo.FullName), zap.String("webhookID", id))
+		state.Logger.Warn("This repository is not configured on Octoflow, ignoring", zap.Error(err), zap.String("repoName", rw.Repo.FullName), zap.String("webhookID", id))
 		w.WriteHeader(http.StatusPartialContent)
-		w.Write([]byte("This repository is not configured on git-logs, ignoring"))
+		w.Write([]byte("This repository is not configured on Octoflow, ignoring"))
 		return
 	}
 
@@ -285,15 +284,15 @@ func handleGitLabWebhook(w http.ResponseWriter, r *http.Request, bodyBytes []byt
 	err := state.Pool.QueryRow(state.Context, "SELECT id, repo_name FROM "+state.TableRepos+" WHERE repo_name = $1 AND webhook_id = $2", repoFullName, id).Scan(&repoID, &repoName)
 
 	if err != nil {
-		state.Logger.Warn("This repository is not configured on git-logs, ignoring", zap.Error(err), zap.String("repoName", repoFullName), zap.String("webhookID", id))
+		state.Logger.Warn("This repository is not configured on Octoflow, ignoring", zap.Error(err), zap.String("repoName", repoFullName), zap.String("webhookID", id))
 		w.WriteHeader(http.StatusPartialContent)
-		w.Write([]byte("This repository is not configured on git-logs, ignoring"))
+		w.Write([]byte("This repository is not configured on Octoflow, ignoring"))
 		return
 	}
 
-	// Create a synthetic RepoWrapper for GitLab
+	// Create a synthetic RepoWrapper for GitLab (display path keeps webhook casing; DB match uses repoFullName).
 	var rw events.RepoWrapper
-	rw.Repo.FullName = repoFullName
+	rw.Repo.FullName = strings.TrimSpace(glPayload.Project.PathWithNamespace)
 	rw.Repo.HTMLURL = glPayload.Project.WebURL
 	rw.Action = glPayload.ObjectKind
 

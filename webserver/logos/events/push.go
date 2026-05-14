@@ -32,7 +32,6 @@ type PushEvent struct {
 func pushFn(bytes []byte) (*discordgo.MessageSend, error) {
 	var gh PushEvent
 
-	// Unmarshal the JSON into our struct
 	err := json.Unmarshal(bytes, &gh)
 
 	if err != nil {
@@ -41,58 +40,75 @@ func pushFn(bytes []byte) (*discordgo.MessageSend, error) {
 
 	var commitList string
 	for _, commit := range gh.Commits {
-		fmt.Println(commit.Author)
-
-		// If the username is empty, use the name instead
 		if commit.Author.Username == "" {
 			commit.Author.Username = commit.Author.Name
 		}
 
-		if len(commit.Message) > 100 {
-			commit.Message = commit.Message[:100] + "..."
+		msg := commit.Message
+		if len(msg) > 100 {
+			msg = msg[:100] + "…"
 		}
 
-		commitList += fmt.Sprintf("%s [``%s``](%s) | [%s](%s)\n", commit.Message, commit.ID[:7], commit.URL, commit.Author.Username, strings.ReplaceAll("https://github.com/"+commit.Author.Username, " ", "%20"))
+		hash := strings.TrimSpace(commit.ID)
+		if len(hash) >= 7 {
+			hash = hash[:7]
+		}
+		if hash == "" {
+			hash = "???????"
+		}
+
+		authorURL := "https://github.com/" + strings.ReplaceAll(commit.Author.Username, " ", "%20")
+		commitURL := strings.TrimSpace(commit.URL)
+		line := fmt.Sprintf("• **%s** · `%s`", msg, hash)
+		if commitURL != "" {
+			line = fmt.Sprintf("• **%s** [`%s`](%s)", msg, hash, commitURL)
+		}
+		line += fmt.Sprintf(" · [%s](%s)\n", commit.Author.Username, authorURL)
+		commitList += line
 	}
 
 	if len(commitList) > 1024 {
-		commitList = commitList[:1024] + "..."
+		commitList = commitList[:1024] + "…"
 	}
 
 	if commitList == "" {
-		commitList = "No commits?"
+		commitList = "_No commits in payload._"
 	}
 
-	branchInfo := "**Ref:** " + gh.Ref
-
+	n := len(gh.Commits)
+	desc := fmt.Sprintf("**%d** commit(s) pushed to **`%s`**", n, gh.Ref)
 	if gh.BaseRef != "" {
-		branchInfo = "\n" + "**Base Ref:** " + gh.BaseRef
+		desc += "\n**Base ref:** `" + gh.BaseRef + "`"
+	}
+
+	pusherVal := gh.Sender.Link()
+	if strings.TrimSpace(gh.Pusher.Name) != "" {
+		pn := strings.ReplaceAll(gh.Pusher.Name, " ", "%20")
+		pusherVal = fmt.Sprintf("[%s](https://github.com/%s)", gh.Pusher.Name, pn)
 	}
 
 	return &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{
 			{
-				Color:  colorGreen,
-				URL:    gh.Repo.HTMLURL,
-				Author: gh.Sender.AuthorEmbed(),
-				Title:  "Push on " + gh.Repo.FullName,
+				Color:       colorGreen,
+				URL:         gh.Repo.HTMLURL,
+				Thumbnail:   gh.Repo.OwnerThumbnail(),
+				Author:      gh.Sender.AuthorEmbed(),
+				Title:       "Push · " + gh.Repo.FullName,
+				Description: desc,
 				Fields: []*discordgo.MessageEmbedField{
-					{
-						Name:  "Branch",
-						Value: branchInfo,
-					},
 					{
 						Name:  "Commits",
 						Value: commitList,
 					},
 					{
-						Name:   "Commit Sender",
-						Value:  gh.Sender.Link(),
+						Name:   "Pusher (name)",
+						Value:  pusherVal,
 						Inline: true,
 					},
 					{
-						Name:   "Pusher",
-						Value:  fmt.Sprintf("[%s](%s)", gh.Pusher.Name, "https://github.com/"+gh.Pusher.Name),
+						Name:   "Webhook actor",
+						Value:  gh.Sender.Link(),
 						Inline: true,
 					},
 				},

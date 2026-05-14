@@ -151,13 +151,13 @@ func branchProtectionRuleFn(bytes []byte) (*discordgo.MessageSend, error) {
 	var title string
 	if gh.Action == "created" {
 		color = colorGreen
-		title = "New branch protection rule: " + gh.Repo.FullName
+		title = "New branch protection rule · " + gh.Repo.FullName
 	} else if gh.Action == "edited" {
 		color = colorYellow
-		title = "Branch protection rule edited: " + gh.Repo.FullName
+		title = "Branch protection rule edited · " + gh.Repo.FullName
 	} else {
 		color = colorRed
-		title = "Branch protection rule deleted: " + gh.Repo.FullName
+		title = "Branch protection rule deleted · " + gh.Repo.FullName
 	}
 
 	desc := "**Settings:**\n\n" + gh.Rule.settings()

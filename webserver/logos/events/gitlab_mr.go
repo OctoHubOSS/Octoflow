@@ -12,17 +12,17 @@ type GLMergeRequestEvent struct {
 	User             GLUser    `json:"user"`
 	Project          GLProject `json:"project"`
 	ObjectAttributes struct {
-		ID              int    `json:"id"`
-		IID             int    `json:"iid"`
-		Title           string `json:"title"`
-		Description     string `json:"description"`
-		State           string `json:"state"`
-		Action          string `json:"action"`
-		URL             string `json:"url"`
-		SourceBranch    string `json:"source_branch"`
-		TargetBranch    string `json:"target_branch"`
-		MergeStatus     string `json:"merge_status"`
-		MergeWhenPipelineSucceeds bool `json:"merge_when_pipeline_succeeds"`
+		ID                        int    `json:"id"`
+		IID                       int    `json:"iid"`
+		Title                     string `json:"title"`
+		Description               string `json:"description"`
+		State                     string `json:"state"`
+		Action                    string `json:"action"`
+		URL                       string `json:"url"`
+		SourceBranch              string `json:"source_branch"`
+		TargetBranch              string `json:"target_branch"`
+		MergeStatus               string `json:"merge_status"`
+		MergeWhenPipelineSucceeds bool   `json:"merge_when_pipeline_succeeds"`
 	} `json:"object_attributes"`
 }
 
@@ -48,14 +48,17 @@ func glMergeRequestFn(bytes []byte) (*discordgo.MessageSend, error) {
 		color = colorRed
 	}
 
+	desc := fmt.Sprintf("_Action:_ **`%s`**\n\n%s", gl.ObjectAttributes.Action, body)
+
 	return &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Color:       color,
 				URL:         gl.ObjectAttributes.URL,
+				Thumbnail:   glProjectThumbnail(gl.Project),
 				Author:      gl.User.AuthorEmbed(),
-				Description: body,
-				Title:       fmt.Sprintf("Merge Request %s on %s (!%d)", gl.ObjectAttributes.Action, gl.Project.PathWithNamespace, gl.ObjectAttributes.IID),
+				Description: desc,
+				Title:       fmt.Sprintf("Merge request · %s · !%d", gl.Project.PathWithNamespace, gl.ObjectAttributes.IID),
 				Fields: []*discordgo.MessageEmbedField{
 					{
 						Name:   "Title",
@@ -63,24 +66,22 @@ func glMergeRequestFn(bytes []byte) (*discordgo.MessageSend, error) {
 						Inline: false,
 					},
 					{
-						Name:   "Source → Target",
-						Value:  gl.ObjectAttributes.SourceBranch + " → " + gl.ObjectAttributes.TargetBranch,
-						Inline: true,
+						Name:   "Branches",
+						Value:  "`" + gl.ObjectAttributes.SourceBranch + "` → `" + gl.ObjectAttributes.TargetBranch + "`",
+						Inline: false,
 					},
 					{
-						Name:   "Merge Status",
-						Value:  gl.ObjectAttributes.MergeStatus,
+						Name:   "Merge status",
+						Value:  "`" + gl.ObjectAttributes.MergeStatus + "`",
 						Inline: true,
 					},
 					{
 						Name:   "State",
-						Value:  gl.ObjectAttributes.State,
+						Value:  "`" + gl.ObjectAttributes.State + "`",
 						Inline: true,
 					},
 				},
-				Footer: &discordgo.MessageEmbedFooter{
-					Text: "GitLab",
-				},
+				Footer: glFooterForProject(gl.Project),
 			},
 		},
 	}, nil

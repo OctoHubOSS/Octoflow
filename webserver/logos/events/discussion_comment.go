@@ -71,7 +71,7 @@ func discussionCommentFn(bytes []byte) (*discordgo.MessageSend, error) {
 						},
 						{
 							Name:   "Repository",
-							Value:  gh.Repo.FullName,
+							Value:  gh.Repo.MarkdownLink(),
 							Inline: true,
 						},
 					},
@@ -111,7 +111,7 @@ func discussionCommentFn(bytes []byte) (*discordgo.MessageSend, error) {
 						},
 						{
 							Name:   "Repository",
-							Value:  gh.Repo.FullName,
+							Value:  gh.Repo.MarkdownLink(),
 							Inline: true,
 						},
 					},
@@ -151,7 +151,7 @@ func discussionCommentFn(bytes []byte) (*discordgo.MessageSend, error) {
 						},
 						{
 							Name:   "Repository",
-							Value:  gh.Repo.FullName,
+							Value:  gh.Repo.MarkdownLink(),
 							Inline: true,
 						},
 						{
@@ -182,7 +182,7 @@ func discussionCommentFn(bytes []byte) (*discordgo.MessageSend, error) {
 					Fields: []*discordgo.MessageEmbedField{
 						{
 							Name:   "Repository",
-							Value:  gh.Repo.FullName,
+							Value:  gh.Repo.MarkdownLink(),
 							Inline: true,
 						},
 						{

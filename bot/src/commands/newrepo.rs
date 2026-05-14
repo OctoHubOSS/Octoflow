@@ -7,13 +7,14 @@ use crate::{Context, Error};
 #[poise::command(slash_command, prefix_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
 pub async fn newrepo(
     ctx: Context<'_>,
-    #[description = "The webhook ID to use"]
-    #[autocomplete = "super::autocomplete_webhooks"]
+    #[description = "Webhook ID from `/list`"]
     webhook_id: String,
     #[description = "The repo owner or organization"] owner: String,
     #[description = "The repo name"] name: String,
     #[description = "The channel to send to"] channel: ChannelId,
-) -> Result<(), Error> { 
+) -> Result<(), Error> {
+    ctx.defer().await?;
+
     let data = ctx.data();
 
     // Check if the guild exists on our DB
@@ -56,47 +57,6 @@ pub async fn newrepo(
         }
 
         let repo_name = (owner+"/"+&name).to_lowercase();
-
-        // Get provider to validate repo
-        let provider_query = sqlx::query!(
-            "SELECT provider FROM webhooks WHERE id = $1 AND guild_id = $2",
-            &webhook_id,
-            &ctx.guild_id().unwrap().to_string()
-        )
-        .fetch_one(&data.pool)
-        .await?;
-
-        let provider = provider_query.provider.unwrap_or_else(|| "github".to_string());
-
-        // Validate repository exists
-        let client = reqwest::Client::new();
-        let exists = if provider == "gitlab" {
-            // GitLab API check
-            let url = format!("https://gitlab.com/api/v4/projects/{}", urlencoding::encode(&repo_name));
-            let res = client.get(&url).send().await;
-            
-            if let Ok(response) = res {
-                response.status().is_success()
-            } else {
-                false
-            }
-        } else {
-            // GitHub API check
-            let url = format!("https://api.github.com/repos/{}", repo_name);
-            let res = client.get(&url)
-                .header("User-Agent", "OctoFlow-Discord-Bot")
-                .send().await;
-                
-            if let Ok(response) = res {
-                response.status().is_success()
-            } else {
-                false
-            }
-        };
-
-        if !exists {
-            return Err("That repository could not be found! Make sure it exists and is public (or use your custom GitLab URL if self-hosted, though validation only works for public repos on github.com/gitlab.com currently).".into());
-        }
 
         // Check if the repo exists
         let repo = sqlx::query!(

@@ -2,10 +2,11 @@ use std::time::Duration;
 
 use log::{error, info};
 use poise::serenity_prelude::{
-    self as prelude, FullEvent,
+    self as prelude, EditInteractionResponse, FullEvent,
 };
 use sqlx::postgres::PgPoolOptions;
 use serenity::gateway::ActivityData;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 mod help;
@@ -23,6 +24,30 @@ pub struct Data {
     pub pool: sqlx::PgPool,
 }
 
+/// After `ctx.defer()`, Discord expects the next user-visible text on the *original* interaction
+/// response (`edit_response`). `ctx.say` may still use the initial callback in some cases and
+/// return Unknown interaction (10062).
+async fn send_command_user_message(ctx: Context<'_>, content: String) -> Result<(), prelude::Error> {
+    match ctx {
+        poise::Context::Application(app)
+            if app
+                .has_sent_initial_response
+                .load(Ordering::SeqCst) =>
+        {
+            app.interaction
+                .edit_response(
+                    ctx.serenity_context().http.as_ref(),
+                    EditInteractionResponse::new().content(content),
+                )
+                .await?;
+        }
+        _ => {
+            ctx.say(content).await?;
+        }
+    }
+    Ok(())
+}
+
 #[poise::command(prefix_command, hide_in_help)]
 async fn register(ctx: Context<'_>) -> Result<(), Error> {
     poise::builtins::register_application_commands_buttons(ctx).await?;
@@ -36,12 +61,13 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
     match error {
         poise::FrameworkError::Command { error, ctx, .. } => {
             error!("Error in command `{}`: {:?}", ctx.command().name, error,);
-            ctx.say(format!(
+            let msg = format!(
                 "There was an error running this command: {}",
                 error
-            ))
-            .await
-            .unwrap();
+            );
+            if let Err(e) = send_command_user_message(ctx, msg).await {
+                error!("Could not send command error reply: {}", e);
+            }
         }
         poise::FrameworkError::CommandCheckFailed { error, ctx, .. } => {
             error!(
@@ -51,16 +77,22 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
             );
             if let Some(error) = error {
                 error!("Error in command `{}`: {:?}", ctx.command().name, error,);
-                ctx.say(format!(
+                let msg = format!(
                     "Whoa there, do you have permission to do this?: {}",
                     error
-                ))
+                );
+                if let Err(e) = send_command_user_message(ctx, msg).await {
+                    error!("Could not send check-failed reply: {}", e);
+                }
+            } else if let Err(e) =
+                send_command_user_message(
+                    ctx,
+                    "You don't have permission to do this but we couldn't figure out why..."
+                        .to_string(),
+                )
                 .await
-                .unwrap();
-            } else {
-                ctx.say("You don't have permission to do this but we couldn't figure out why...")
-                    .await
-                    .unwrap();
+            {
+                error!("Could not send check-failed reply: {}", e);
             }
         }
         error => {
@@ -110,10 +142,10 @@ async fn main() {
     let mut http =
         prelude::HttpBuilder::new(&config::CONFIG.token);
 
-    if let Some(v) = &config::CONFIG.proxy_url {
+    if let Some(v) = config::CONFIG.proxy_url.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
         info!("Setting proxy url to {}", v);
         http = http.proxy(v).ratelimiter_disabled(true);
-    }    
+    }
 
     let http = http.build();
 
@@ -143,15 +175,15 @@ async fn main() {
                 register(),
                 help::simplehelp(),
                 help::help(),
-                commands::list(),
-                commands::newhook(),
-                commands::edithook(),
-                commands::newrepo(),
-                commands::editrepo(),
-                commands::delhook(),
-                commands::delrepo(),
-                commands::setrepochannel(),
-                commands::resetsecret(),
+                commands::list::list(),
+                commands::newhook::newhook(),
+                commands::edithook::edithook(),
+                commands::newrepo::newrepo(),
+                commands::editrepo::editrepo(),
+                commands::delhook::delhook(),
+                commands::delrepo::delrepo(),
+                commands::setrepochannel::setrepochannel(),
+                commands::resetsecret::resetsecret(),
                 backups::backup(),
                 backups::restore(),
                 eventmods::eventmod(),

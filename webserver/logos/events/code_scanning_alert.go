@@ -167,7 +167,7 @@ func codeScanningAlertFn(bytes []byte) (*discordgo.MessageSend, error) {
 				Color:  color,
 				URL:    gh.Alert.HTMLURL,
 				Author: gh.Sender.AuthorEmbed(),
-				Title:  fmt.Sprintf("Code Scanning Alert #%d %s on %s", gh.Alert.Number, gh.Action, gh.Repo.FullName),
+				Title:  fmt.Sprintf("Code Scanning Alert #%d · %s · %s", gh.Alert.Number, gh.Action, gh.Repo.FullName),
 				Fields: fields,
 			},
 		},

@@ -2,8 +2,12 @@ package events
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 type IssuesEvent struct {
@@ -16,7 +20,6 @@ type IssuesEvent struct {
 func issuesFn(bytes []byte) (*discordgo.MessageSend, error) {
 	var gh IssuesEvent
 
-	// Unmarshal the JSON into our struct
 	err := json.Unmarshal(bytes, &gh)
 
 	if err != nil {
@@ -25,18 +28,28 @@ func issuesFn(bytes []byte) (*discordgo.MessageSend, error) {
 
 	var body string = gh.Issue.Body
 	if len(gh.Issue.Body) > 996 {
-		body = gh.Issue.Body[:996] + "..."
+		body = gh.Issue.Body[:996] + "…"
 	}
 
 	if body == "" {
-		body = "No description available"
+		body = "_No description provided._"
 	}
 
-	var color int
-	if gh.Action == "deleted" || gh.Action == "unpinned" {
+	actionLabel := cases.Title(language.English).String(strings.ReplaceAll(gh.Action, "_", " "))
+
+	color := colorGreen
+	switch gh.Action {
+	case "deleted", "unpinned", "demilestoned", "closed", "locked":
 		color = colorRed
-	} else {
-		color = colorGreen
+	case "edited", "labeled", "unlabeled", "assigned", "unassigned", "milestoned", "pinned":
+		color = colorYellow
+	}
+
+	desc := fmt.Sprintf("**%s** · #%d · **`%s`**\n\n%s", actionLabel, gh.Issue.Number, gh.Issue.State, body)
+
+	thumb := gh.Issue.User.EmbedThumbnail()
+	if thumb == nil {
+		thumb = gh.Repo.OwnerThumbnail()
 	}
 
 	return &discordgo.MessageSend{
@@ -44,25 +57,14 @@ func issuesFn(bytes []byte) (*discordgo.MessageSend, error) {
 			{
 				Color:       color,
 				URL:         gh.Issue.HTMLURL,
+				Thumbnail:   thumb,
 				Author:      gh.Sender.AuthorEmbed(),
-				Description: body,
-				Title:       fmt.Sprintf("Issue %s on %s (#%d)", gh.Action, gh.Repo.FullName, gh.Issue.Number),
+				Description: desc,
+				Title:       "Issue · " + gh.Repo.FullName + " · #" + strconv.Itoa(gh.Issue.Number),
 				Fields: []*discordgo.MessageEmbedField{
-					{
-						Name:   "Action",
-						Value:  gh.Action,
-						Inline: true,
-					},
-					{
-						Name:   "User",
-						Value:  gh.Sender.Link(),
-						Inline: true,
-					},
-					{
-						Name:   "Title",
-						Value:  gh.Issue.Title,
-						Inline: true,
-					},
+					{Name: "Title", Value: gh.Issue.Title, Inline: false},
+					{Name: "Author", Value: gh.Issue.User.Link(), Inline: true},
+					{Name: "Actor", Value: gh.Sender.Link(), Inline: true},
 				},
 			},
 		},

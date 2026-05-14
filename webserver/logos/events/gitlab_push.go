@@ -47,7 +47,7 @@ func glPushFn(bytes []byte) (*discordgo.MessageSend, error) {
 		if len(msg) > 100 {
 			msg = msg[:100] + "..."
 		}
-		commitList += fmt.Sprintf("%s [``%s``](%s) | %s\n", msg, commit.ID[:7], commit.URL, commit.Author.Name)
+		commitList += fmt.Sprintf("• **%s** [`%s`](%s) · _%s_\n", msg, commit.ID[:7], commit.URL, commit.Author.Name)
 	}
 
 	if len(commitList) > 1024 {
@@ -61,18 +61,16 @@ func glPushFn(bytes []byte) (*discordgo.MessageSend, error) {
 	return &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{
 			{
-				Color: glColorOrange,
-				URL:   gl.Project.WebURL,
+				Color:     glColorOrange,
+				URL:       gl.Project.WebURL,
+				Thumbnail: glProjectThumbnail(gl.Project),
 				Author: &discordgo.MessageEmbedAuthor{
 					Name:    gl.UserName + " (@" + gl.UserUsername + ")",
 					IconURL: gl.UserAvatar,
 				},
-				Title: "Push on " + gl.Project.PathWithNamespace,
+				Title:       "Push · " + gl.Project.PathWithNamespace,
+				Description: fmt.Sprintf("**%d** commit(s) on `%s`", gl.TotalCommitsCount, gl.Ref),
 				Fields: []*discordgo.MessageEmbedField{
-					{
-						Name:  "Branch",
-						Value: "**Ref:** " + gl.Ref,
-					},
 					{
 						Name:  "Commits",
 						Value: commitList,
@@ -83,14 +81,12 @@ func glPushFn(bytes []byte) (*discordgo.MessageSend, error) {
 						Inline: true,
 					},
 					{
-						Name:   "Total Commits",
+						Name:   "Total",
 						Value:  fmt.Sprintf("%d", gl.TotalCommitsCount),
 						Inline: true,
 					},
 				},
-				Footer: &discordgo.MessageEmbedFooter{
-					Text: "GitLab",
-				},
+				Footer: glFooterForProject(gl.Project),
 			},
 		},
 	}, nil
@@ -120,27 +116,27 @@ func glTagPushFn(bytes []byte) (*discordgo.MessageSend, error) {
 	return &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{
 			{
-				Color: glColorOrange,
-				URL:   gl.Project.WebURL,
+				Color:     glColorOrange,
+				URL:       gl.Project.WebURL,
+				Thumbnail: glProjectThumbnail(gl.Project),
 				Author: &discordgo.MessageEmbedAuthor{
 					Name:    gl.UserName + " (@" + gl.UserUsername + ")",
 					IconURL: gl.UserAvatar,
 				},
-				Title: "Tag Push on " + gl.Project.PathWithNamespace,
+				Title:       "Tag push · " + gl.Project.PathWithNamespace,
+				Description: "New tag activity on **`" + gl.Ref + "`**.",
 				Fields: []*discordgo.MessageEmbedField{
 					{
 						Name:  "Ref",
-						Value: gl.Ref,
+						Value: "`" + gl.Ref + "`",
 					},
 					{
 						Name:   "Checkout SHA",
-						Value:  gl.CheckoutSHA,
+						Value:  "`" + gl.CheckoutSHA + "`",
 						Inline: true,
 					},
 				},
-				Footer: &discordgo.MessageEmbedFooter{
-					Text: "GitLab",
-				},
+				Footer: glFooterForProject(gl.Project),
 			},
 		},
 	}, nil

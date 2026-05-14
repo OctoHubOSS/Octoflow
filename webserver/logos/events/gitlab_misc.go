@@ -50,7 +50,7 @@ func glReleaseFn(bytes []byte) (*discordgo.MessageSend, error) {
 				Color:       color,
 				URL:         gl.URL,
 				Description: desc,
-				Title:       fmt.Sprintf("Release %s on %s (%s)", gl.Action, gl.Project.PathWithNamespace, gl.Tag),
+				Title:       fmt.Sprintf("Release · %s · %s · (%s)", gl.Action, gl.Project.PathWithNamespace, gl.Tag),
 				Fields: []*discordgo.MessageEmbedField{
 					{
 						Name:   "Name",
@@ -113,7 +113,7 @@ func glWikiFn(bytes []byte) (*discordgo.MessageSend, error) {
 				Color:  color,
 				URL:    gl.ObjectAttributes.URL,
 				Author: gl.User.AuthorEmbed(),
-				Title:  fmt.Sprintf("Wiki Page %s on %s", gl.ObjectAttributes.Action, gl.Project.PathWithNamespace),
+				Title:  fmt.Sprintf("Wiki Page · %s · %s", gl.ObjectAttributes.Action, gl.Project.PathWithNamespace),
 				Fields: []*discordgo.MessageEmbedField{
 					{
 						Name:   "Title",
@@ -194,7 +194,7 @@ func glDeploymentFn(bytes []byte) (*discordgo.MessageSend, error) {
 			{
 				Color:  color,
 				Author: gl.User.AuthorEmbed(),
-				Title:  fmt.Sprintf("Deployment %s on %s", gl.Status, gl.Project.PathWithNamespace),
+				Title:  fmt.Sprintf("Deployment · %s · %s", gl.Status, gl.Project.PathWithNamespace),
 				Fields: fields,
 				Footer: &discordgo.MessageEmbedFooter{
 					Text: "GitLab",

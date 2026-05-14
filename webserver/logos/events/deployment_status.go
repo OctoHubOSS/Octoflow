@@ -51,7 +51,7 @@ func deploymentStatusFn(bytes []byte) (*discordgo.MessageSend, error) {
 		emoji = "ℹ️"
 	}
 
-	var title string = emoji + " Deployment status updated on: " + gh.Repo.FullName + " (" + gh.Action + ")"
+	title := emoji + " Deployment status updated · " + gh.Repo.FullName + " · (" + gh.Action + ")"
 
 	var color int
 	if gh.DeploymentStatus.State == "success" {

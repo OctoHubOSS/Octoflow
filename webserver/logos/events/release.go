@@ -1,6 +1,8 @@
 package events
 
 import (
+	"strings"
+
 	"github.com/bwmarrin/discordgo"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -20,49 +22,54 @@ type ReleaseEvent struct {
 func releaseFn(bytes []byte) (*discordgo.MessageSend, error) {
 	var gh ReleaseEvent
 
-	// Unmarshal the JSON into our struct
 	err := json.Unmarshal(bytes, &gh)
 
 	if err != nil {
 		return &discordgo.MessageSend{}, err
 	}
 
-	var color int
-	var title string = cases.Title(language.English).String(gh.Action) + " release on " + gh.Repo.FullName
-	if gh.Action == "created" || gh.Action == "published" || gh.Action == "edited" || gh.Action == "prereleased" || gh.Action == "released" {
-		color = colorGreen
-	} else {
+	actionLabel := cases.Title(language.English).String(strings.ReplaceAll(gh.Action, "_", " "))
+
+	color := colorGreen
+	if gh.Action == "deleted" || gh.Action == "unpublished" {
 		color = colorRed
+	} else if gh.Action == "edited" || gh.Action == "prereleased" {
+		color = colorYellow
 	}
 
-	var body string = gh.Release.Body
-	if len(gh.Release.Body) > 996 {
-		body = gh.Release.Body[:996] + "..."
+	body := strings.TrimSpace(gh.Release.Body)
+	if len(body) > 1800 {
+		body = body[:1797] + "…"
 	}
-
 	if body == "" {
-		body = "No description available"
+		body = "_No release notes._"
 	}
+
+	page := strings.TrimSpace(gh.Release.HTMLUrl)
+	if page == "" {
+		page = gh.Repo.HTMLURL
+	}
+
+	tag := strings.TrimSpace(gh.Release.TagName)
+	if tag == "" {
+		tag = "Release"
+	}
+
+	desc := "**" + actionLabel + "** · [`" + tag + "`](" + page + ")\n\n" + body
 
 	return &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Color:       color,
-				URL:         gh.Repo.HTMLURL,
-				Title:       title,
+				URL:         page,
+				Thumbnail:   gh.Repo.OwnerThumbnail(),
+				Title:       "Release · " + gh.Repo.FullName,
 				Author:      gh.Sender.AuthorEmbed(),
-				Description: body,
+				Description: desc,
 				Fields: []*discordgo.MessageEmbedField{
-					{
-						Name:   "User",
-						Value:  gh.Sender.Link(),
-						Inline: true,
-					},
-					{
-						Name:   "Release",
-						Value:  "[" + gh.Release.TagName + "]" + "(" + gh.Release.HTMLUrl + ")",
-						Inline: true,
-					},
+					{Name: "Repository", Value: gh.Repo.MarkdownLink(), Inline: false},
+					{Name: "Actor", Value: gh.Sender.Link(), Inline: true},
+					{Name: "Tag", Value: "`" + gh.Release.TagName + "`", Inline: true},
 				},
 			},
 		},

@@ -1,6 +1,8 @@
 package events
 
 import (
+	"strings"
+
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -13,55 +15,50 @@ type CommitCommentEvent struct {
 		HTMLURL  string `json:"html_url"`
 		User     User   `json:"user"`
 		CommitID string `json:"commit_id"`
-	}
+	} `json:"comment"`
 }
 
 func commitCommentFn(bytes []byte) (*discordgo.MessageSend, error) {
 	var gh CommitCommentEvent
 
-	// Unmarshal the JSON into our struct
 	err := json.Unmarshal(bytes, &gh)
 
 	if err != nil {
 		return &discordgo.MessageSend{}, err
 	}
 
-	var comment string = gh.Comment.Body
-
-	if len(gh.Comment.Body) > 1000 {
-		comment = gh.Comment.Body[:1000] + "..."
+	comment := strings.TrimSpace(gh.Comment.Body)
+	if len(comment) > 1800 {
+		comment = comment[:1797] + "…"
 	}
-
 	if comment == "" {
-		comment = "No description available"
+		comment = "_Empty comment._"
 	}
 
-	var color int
+	color := colorGreen
 	if gh.Action == "deleted" {
 		color = colorRed
-	} else {
-		color = colorGreen
 	}
+
+	short := strings.TrimSpace(gh.Comment.CommitID)
+	if len(short) > 7 {
+		short = short[:7]
+	}
+
+	desc := "**Commit:** " + gh.Repo.Commit(gh.Comment.CommitID) + "\n\n" + comment
 
 	return &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Color:       color,
 				URL:         gh.Comment.HTMLURL,
+				Thumbnail:   gh.Repo.OwnerThumbnail(),
 				Author:      gh.Sender.AuthorEmbed(),
-				Title:       "Comment on commit " + gh.Repo.FullName + " (" + gh.Comment.CommitID[:7] + ")",
-				Description: comment,
+				Title:       "Commit comment · " + gh.Repo.FullName + " · `" + short + "`",
+				Description: desc,
 				Fields: []*discordgo.MessageEmbedField{
-					{
-						Name:   "User",
-						Value:  gh.Comment.User.Link(),
-						Inline: true,
-					},
-					{
-						Name:   "Commit",
-						Value:  gh.Repo.Commit(gh.Comment.CommitID),
-						Inline: true,
-					},
+					{Name: "Comment author", Value: gh.Comment.User.Link(), Inline: true},
+					{Name: "Actor", Value: gh.Sender.Link(), Inline: true},
 				},
 			},
 		},

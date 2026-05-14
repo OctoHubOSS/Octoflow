@@ -6,8 +6,7 @@ use crate::{Context, Error};
 #[poise::command(slash_command, prefix_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
 pub async fn setrepochannel(
     ctx: Context<'_>,
-    #[description = "The repo ID"]
-    #[autocomplete = "super::autocomplete_repos"]
+    #[description = "Repo ID from `/list`"]
     id: String,
     #[description = "The new channel ID"] channel: ChannelId,
 ) -> Result<(), Error> { 

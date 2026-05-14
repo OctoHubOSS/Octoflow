@@ -1,6 +1,11 @@
 package events
 
-import "github.com/bwmarrin/discordgo"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/bwmarrin/discordgo"
+)
 
 type DependabotAlertEvent struct {
 	Action string     `json:"action"`
@@ -39,141 +44,141 @@ type DependabotAlertEvent struct {
 func dependabotAlertFn(bytes []byte) (*discordgo.MessageSend, error) {
 	var gh DependabotAlertEvent
 
-	// Unmarshal the JSON into our struct
 	err := json.Unmarshal(bytes, &gh)
-
 	if err != nil {
 		return &discordgo.MessageSend{}, err
 	}
 
-	var color int
+	color := colorGreen
 	if gh.Action == "closed" {
 		color = colorRed
-	} else {
-		color = colorGreen
 	}
 
-	var details = gh.Alert.Dependency.Package.Name + " (" + gh.Alert.Dependency.Package.Ecosystem + ")"
-
-	if gh.Alert.Dependency.Scope != "" {
-		details += "\n**Scope:** " + gh.Alert.Dependency.Scope
-
-		if gh.Alert.Dependency.Scope == "runtime" {
-			details += " (this could be a highly critical vulnerability; runtime dependencies may not be checked by Dependabot)"
-		}
-	}
-
+	pkg := gh.Alert.Dependency.Package.Name
+	eco := gh.Alert.Dependency.Package.Ecosystem
+	depLine := fmt.Sprintf("**`%s`** · _%s_", pkg, eco)
 	if gh.Alert.Dependency.ManifestPath != "" {
-		details += "\n**Manifest Path:** " + gh.Alert.Dependency.ManifestPath
+		depLine += "\n**Manifest:** `" + gh.Alert.Dependency.ManifestPath + "`"
+	}
+	if gh.Alert.Dependency.Scope != "" {
+		depLine += "\n**Scope:** `" + gh.Alert.Dependency.Scope + "`"
+		if gh.Alert.Dependency.Scope == "runtime" {
+			depLine += " _(runtime deps are often exploitable at execution time)_"
+		}
 	}
 
-	if gh.Alert.SecurityAdvisory.Severity != "" {
-		details += "\n**Severity:** " + gh.Alert.SecurityAdvisory.Severity
-
-		if gh.Alert.SecurityAdvisory.Severity == "high" || gh.Alert.SecurityAdvisory.Severity == "critical" {
+	sev := gh.Alert.SecurityAdvisory.Severity
+	if sev != "" {
+		if sev == "high" || sev == "critical" {
 			color = colorDarkRed
+		} else if sev == "medium" {
+			color = colorYellow
 		}
 	}
 
+	advisoryBits := []string{}
 	if gh.Alert.SecurityAdvisory.GHSAID != "" {
-		details += "\n**GHSA ID:** " + gh.Alert.SecurityAdvisory.GHSAID
+		advisoryBits = append(advisoryBits, "**GHSA:** `"+gh.Alert.SecurityAdvisory.GHSAID+"`")
 	}
-
-	if gh.Alert.SecurityAdvisory.CVEID != "" {
-		details += "\n**CVE:** CVE " + gh.Alert.SecurityAdvisory.CVEID
-	}
-
-	if gh.Alert.State == "fixed" {
-		details += "\n**Could be fixed by resolving:** " + gh.Alert.Dependency.Package.Name + " " + gh.Alert.SecurityAdvisory.GHSAID
-	}
-
-	if len(details) > 1020 {
-		details = details[:1020] + "..."
-	}
-
-	var summaryDet string
-
-	if gh.Alert.SecurityAdvisory.Summary != "" {
-		summaryDet += "\n**Summary:** " + gh.Alert.SecurityAdvisory.Summary
-	}
-
-	if gh.Alert.SecurityAdvisory.Description != "" {
-		if len(gh.Alert.SecurityAdvisory.Description) > 996 {
-			summaryDet += "\n\n" + gh.Alert.SecurityAdvisory.Description[:996] + "..."
+	if cve := strings.TrimSpace(gh.Alert.SecurityAdvisory.CVEID); cve != "" {
+		if strings.HasPrefix(strings.ToUpper(cve), "CVE-") {
+			advisoryBits = append(advisoryBits, "**CVE:** `"+cve+"`")
 		} else {
-			summaryDet += "\n\n" + gh.Alert.SecurityAdvisory.Description
+			advisoryBits = append(advisoryBits, "**CVE:** `CVE-"+cve+"`")
+		}
+	}
+	if sev != "" {
+		advisoryBits = append(advisoryBits, "**Severity:** `"+sev+"`")
+	}
+	advisoryBlock := strings.Join(advisoryBits, "\n")
+	if advisoryBlock == "" {
+		advisoryBlock = "—"
+	}
+
+	summary := strings.TrimSpace(gh.Alert.SecurityAdvisory.Summary)
+	if summary == "" {
+		summary = "_No short summary from GitHub._"
+	} else if len(summary) > 500 {
+		summary = summary[:497] + "…"
+	}
+
+	body := strings.TrimSpace(gh.Alert.SecurityAdvisory.Description)
+	if len(body) > 900 {
+		body = body[:897] + "…"
+	}
+	if body != "" {
+		summary += "\n\n" + body
+	}
+
+	var vulnLines []string
+	for _, vuln := range gh.Alert.SecurityAdvisory.Vulnerabilities {
+		line := ""
+		if vuln.Severity != "" {
+			line += "**" + vuln.Severity + "**"
+		}
+		if vuln.VulnerableVersionRange != "" {
+			if line != "" {
+				line += " · "
+			}
+			line += "`" + vuln.VulnerableVersionRange + "`"
+		}
+		if vuln.FirstPatchedVersion.Identifier != "" {
+			line += "\n_Patched:_ `" + vuln.FirstPatchedVersion.Identifier + "`"
+		}
+		if strings.TrimSpace(line) != "" {
+			vulnLines = append(vulnLines, line)
+		}
+	}
+	vulns := strings.Join(vulnLines, "\n\n")
+	if vulns == "" {
+		vulns = "—"
+	}
+
+	dismissed := "—"
+	if gh.Alert.DismissedReason != "" || gh.Alert.DismissedBy.Login != "" {
+		dismissed = ""
+		if gh.Alert.DismissedReason != "" {
+			dismissed += "**Reason:** " + gh.Alert.DismissedReason
+		}
+		if gh.Alert.DismissedBy.Login != "" {
+			if dismissed != "" {
+				dismissed += "\n"
+			}
+			dismissed += "**By:** " + gh.Alert.DismissedBy.Link()
 		}
 	}
 
-	if len(summaryDet) > 1020 {
-		summaryDet = summaryDet[:1020] + "..."
+	alertURL := strings.TrimSpace(gh.Alert.HTMLURL)
+	title := fmt.Sprintf("Dependabot · %s · %s", strings.TrimSpace(gh.Repo.FullName), gh.Alert.State)
+	if strings.TrimSpace(gh.Repo.FullName) == "" {
+		title = fmt.Sprintf("Dependabot · %s · %s", strings.TrimSpace(gh.Repo.Name), gh.Alert.State)
 	}
 
-	var vulns string
-
-	for _, vuln := range gh.Alert.SecurityAdvisory.Vulnerabilities {
-		vulns += "\n**Severity:** " + vuln.Severity + "\n**Vulnerable Version Range:** " + vuln.VulnerableVersionRange + "\n**First Patched Version:** " + vuln.FirstPatchedVersion.Identifier + "\n"
+	desc := fmt.Sprintf("**Package:** `%s` · **Ecosystem:** _%s_\n**State:** `%s` · **Action:** `%s`", pkg, eco, gh.Alert.State, gh.Action)
+	if alertURL != "" {
+		desc += "\n[**Open alert in GitHub**](" + alertURL + ")"
 	}
 
-	if len(vulns) > 1020 {
-		vulns = vulns[:1020] + "..."
-	}
-
-	var dismissed string
-
-	if gh.Alert.DismissedReason != "" {
-		dismissed += "\n**Dismissed Reason:** " + gh.Alert.DismissedReason
-	}
-
-	if len(dismissed) > 1020 {
-		dismissed += dismissed[:1020] + "..."
-	}
-
-	if gh.Alert.DismissedBy.Login != "" {
-		dismissed += "\n**Dismissed By:** " + gh.Alert.DismissedBy.Link()
-	}
-
-	if dismissed == "" {
-		dismissed = "Not dismissed"
+	var thumb *discordgo.MessageEmbedThumbnail
+	if gh.Repo.Owner.AvatarURL != "" {
+		thumb = &discordgo.MessageEmbedThumbnail{URL: gh.Repo.Owner.AvatarURL}
 	}
 
 	return &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{
 			{
-				Color: color,
-				URL:   gh.Alert.HTMLURL,
-				Title: "Dependabot Alert on " + gh.Repo.FullName + " " + gh.Alert.State,
+				Color:       color,
+				URL:         alertURL,
+				Title:       title,
+				Description: desc,
+				Thumbnail:   thumb,
+				Author:      gh.Sender.AuthorEmbed(),
 				Fields: []*discordgo.MessageEmbedField{
-					{
-						Name:   "URL",
-						Value:  gh.Alert.HTMLURL,
-						Inline: true,
-					},
-					{
-						Name:   "State",
-						Value:  gh.Alert.State,
-						Inline: true,
-					},
-					{
-						Name:   "Details",
-						Value:  details,
-						Inline: true,
-					},
-					{
-						Name:   "Summary",
-						Value:  summaryDet,
-						Inline: true,
-					},
-					{
-						Name:   "Vulnerabilities",
-						Value:  vulns,
-						Inline: true,
-					},
-					{
-						Name:   "Dismissal Details",
-						Value:  dismissed,
-						Inline: true,
-					},
+					{Name: "Dependency", Value: truncateField(depLine, 1024), Inline: false},
+					{Name: "Advisory", Value: truncateField(advisoryBlock, 1024), Inline: false},
+					{Name: "Summary", Value: truncateField(summary, 1024), Inline: false},
+					{Name: "Version ranges", Value: truncateField(vulns, 1024), Inline: false},
+					{Name: "Dismissal", Value: truncateField(dismissed, 1024), Inline: false},
 				},
 			},
 		},

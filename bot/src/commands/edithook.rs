@@ -1,27 +1,20 @@
+use super::webhook_provider::WebhookProvider;
 use crate::{Context, Error};
 
 /// Edits a webhook
 #[poise::command(slash_command, prefix_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
 pub async fn edithook(
     ctx: Context<'_>,
-    #[description = "The webhook ID"]
-    #[autocomplete = "super::autocomplete_webhooks"]
+    #[description = "Webhook ID from `/list`"]
     id: String,
     #[description = "The comment for the webhook"] comment: Option<String>,
     #[description = "Is the webhook broken?"] broken: Option<bool>,
     #[description = "The new secret for the webhook"] webhook_secret: Option<String>,
-    #[description = "Provider: github or gitlab"] provider: Option<String>,
+    #[description = "Where this webhook receives events from"] provider: Option<WebhookProvider>,
 ) -> Result<(), Error> {
-    let data = ctx.data();
+    ctx.defer().await?;
 
-    // Validate provider if provided
-    if let Some(ref p) = provider {
-        let p_lower = p.to_lowercase();
-        if p_lower != "github" && p_lower != "gitlab" {
-            ctx.say("Invalid provider! Use `github` or `gitlab`").await?;
-            return Ok(());
-        }
-    }
+    let data = ctx.data();
 
     // Validate secret isn't too short if provided
     if let Some(ref s) = webhook_secret {
@@ -101,7 +94,7 @@ pub async fn edithook(
     if let Some(provider) = provider {
         sqlx::query!(
             "UPDATE webhooks SET provider = $1 WHERE id = $2 AND guild_id = $3",
-            provider.to_lowercase(),
+            provider.as_db(),
             &id,
             &ctx.guild_id().unwrap().to_string()
         )

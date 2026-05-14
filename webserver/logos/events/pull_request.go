@@ -2,8 +2,12 @@ package events
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 type PullRequestEvent struct {
@@ -16,57 +20,56 @@ type PullRequestEvent struct {
 func pullRequestFn(bytes []byte) (*discordgo.MessageSend, error) {
 	var gh PullRequestEvent
 
-	// Unmarshal the JSON into our struct
 	err := json.Unmarshal(bytes, &gh)
 
 	if err != nil {
 		return &discordgo.MessageSend{}, err
 	}
 
-	var body string = gh.PullRequest.Body
-	if len(gh.PullRequest.Body) > 1000 {
-		body = gh.PullRequest.Body[:1000]
+	body := strings.TrimSpace(gh.PullRequest.Body)
+	if len(body) > 1800 {
+		body = body[:1797] + "…"
 	}
-
 	if body == "" {
-		body = "No description available"
+		body = "_No description._"
 	}
 
-	var color int
+	color := colorGreen
 	if gh.Action == "closed" {
 		color = colorRed
-	} else {
-		color = colorGreen
+	} else if gh.Action == "edited" || gh.Action == "labeled" || gh.Action == "unlabeled" || gh.Action == "synchronize" {
+		color = colorYellow
+	}
+
+	actionLabel := cases.Title(language.English).String(strings.ReplaceAll(gh.Action, "_", " "))
+
+	desc := fmt.Sprintf("**%s** · #%d · **`%s`**\n\n%s", actionLabel, gh.PullRequest.Number, gh.PullRequest.State, body)
+
+	branches := fmt.Sprintf("`%s` ← `%s`", gh.PullRequest.Base.Ref, gh.PullRequest.Head.Ref)
+	if gh.PullRequest.Base.Repo.FullName != "" || gh.PullRequest.Head.Repo.FullName != "" {
+		branches += fmt.Sprintf("\n%s into %s", gh.PullRequest.Head.Repo.MarkdownLink(), gh.PullRequest.Base.Repo.MarkdownLink())
+	}
+
+	thumb := gh.PullRequest.User.EmbedThumbnail()
+	if thumb == nil {
+		thumb = gh.Repo.OwnerThumbnail()
 	}
 
 	return &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{
 			{
-				Color:  color,
-				URL:    gh.PullRequest.HTMLURL,
-				Author: gh.Sender.AuthorEmbed(),
-				Title:  fmt.Sprintf("Pull Request %s on %s (#%d)", gh.Action, gh.Repo.FullName, gh.PullRequest.Number),
+				Color:       color,
+				URL:         gh.PullRequest.HTMLURL,
+				Thumbnail:   thumb,
+				Author:      gh.Sender.AuthorEmbed(),
+				Title:       "Pull request · " + gh.Repo.FullName + " · #" + strconv.Itoa(gh.PullRequest.Number),
+				Description: desc,
 				Fields: []*discordgo.MessageEmbedField{
-					{
-						Name:  "Action",
-						Value: gh.Action,
-					},
-					{
-						Name:  "User",
-						Value: gh.Sender.Link(),
-					},
-					{
-						Name:  "Title",
-						Value: gh.PullRequest.Title,
-					},
-					{
-						Name:  "Body",
-						Value: body,
-					},
-					{
-						Name:  "More Information",
-						Value: fmt.Sprintf("**Base Ref:** %s\n**Base Label:** %s\n**Head Ref:** %s\n**Head Label:** %s", gh.PullRequest.Base.Ref, gh.PullRequest.Base.Label, gh.PullRequest.Head.Ref, gh.PullRequest.Head.Label),
-					},
+					{Name: "Title", Value: gh.PullRequest.Title, Inline: false},
+					{Name: "Branches", Value: branches, Inline: false},
+					{Name: "PR author", Value: gh.PullRequest.User.Link(), Inline: true},
+					{Name: "Actor", Value: gh.Sender.Link(), Inline: true},
+					{Name: "Locked", Value: fmt.Sprintf("`%v`", gh.PullRequest.Locked), Inline: true},
 				},
 			},
 		},

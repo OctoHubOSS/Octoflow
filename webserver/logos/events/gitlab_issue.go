@@ -47,29 +47,28 @@ func glIssueFn(bytes []byte) (*discordgo.MessageSend, error) {
 			{
 				Color:       color,
 				URL:         gl.ObjectAttributes.URL,
+				Thumbnail:   glProjectThumbnail(gl.Project),
 				Author:      gl.User.AuthorEmbed(),
 				Description: body,
-				Title:       fmt.Sprintf("Issue %s on %s (#%d)", gl.ObjectAttributes.Action, gl.Project.PathWithNamespace, gl.ObjectAttributes.IID),
+				Title:       fmt.Sprintf("Issue · %s · #%d", gl.Project.PathWithNamespace, gl.ObjectAttributes.IID),
 				Fields: []*discordgo.MessageEmbedField{
 					{
 						Name:   "Action",
-						Value:  gl.ObjectAttributes.Action,
+						Value:  "`" + gl.ObjectAttributes.Action + "`",
 						Inline: true,
 					},
 					{
 						Name:   "State",
-						Value:  gl.ObjectAttributes.State,
+						Value:  "`" + gl.ObjectAttributes.State + "`",
 						Inline: true,
 					},
 					{
 						Name:   "Title",
 						Value:  gl.ObjectAttributes.Title,
-						Inline: true,
+						Inline: false,
 					},
 				},
-				Footer: &discordgo.MessageEmbedFooter{
-					Text: "GitLab",
-				},
+				Footer: glFooterForProject(gl.Project),
 			},
 		},
 	}, nil

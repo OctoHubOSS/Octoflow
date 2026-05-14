@@ -2,9 +2,12 @@ package events
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 type DeploymentEvent struct {
@@ -27,29 +30,42 @@ type DeploymentEvent struct {
 func deploymentFn(bytes []byte) (*discordgo.MessageSend, error) {
 	var gh DeploymentEvent
 
-	// Unmarshal the JSON into our struct
 	err := json.Unmarshal(bytes, &gh)
 
 	if err != nil {
 		return &discordgo.MessageSend{}, err
 	}
 
-	var color int
-	var title string = "Deployment " + gh.Action + " on " + gh.Repo.FullName
-	if gh.Action == "created" || gh.Action == "edited" {
-		color = colorGreen
-	} else {
+	actionLabel := cases.Title(language.English).String(strings.ReplaceAll(gh.Action, "_", " "))
+
+	color := colorGreen
+	if gh.Action != "created" && gh.Action != "edited" {
 		color = colorRed
 	}
 
-	var env = gh.Deployment.Environment
-
+	env := gh.Deployment.Environment
 	if gh.Deployment.OriginalEnvironment != gh.Deployment.Environment && gh.Deployment.OriginalEnvironment != "" {
-		env = gh.Deployment.OriginalEnvironment + " => " + gh.Deployment.Environment
+		env = "`" + gh.Deployment.OriginalEnvironment + "` → `" + gh.Deployment.Environment + "`"
+	} else {
+		env = "`" + env + "`"
 	}
 
-	if len(gh.Deployment.Description) > 996 {
-		gh.Deployment.Description = gh.Deployment.Description[:996] + "..."
+	body := strings.TrimSpace(gh.Deployment.Description)
+	if len(body) > 1200 {
+		body = body[:1197] + "…"
+	}
+	if body == "" {
+		body = "_No deployment description._"
+	}
+
+	desc := "**" + actionLabel + "** · " + gh.Repo.MarkdownLink() + "\n\n" + body
+	if gh.Deployment.StatusesUrl != "" {
+		desc += "\n\n[**Statuses**](" + gh.Deployment.StatusesUrl + ")"
+	}
+
+	ts := ""
+	if !gh.Deployment.CreatedAt.IsZero() {
+		ts = gh.Deployment.CreatedAt.UTC().Format(time.RFC3339)
 	}
 
 	return &discordgo.MessageSend{
@@ -57,36 +73,17 @@ func deploymentFn(bytes []byte) (*discordgo.MessageSend, error) {
 			{
 				Color:       color,
 				URL:         gh.Repo.HTMLURL,
-				Title:       title,
+				Thumbnail:   gh.Repo.OwnerThumbnail(),
 				Author:      gh.Deployment.Creator.AuthorEmbed(),
-				Description: gh.Deployment.Description,
-				Timestamp:   gh.Deployment.CreatedAt.Format(time.RFC3339),
+				Title:       "Deployment · " + gh.Repo.FullName,
+				Description: desc,
+				Timestamp:   ts,
 				Fields: []*discordgo.MessageEmbedField{
-					{
-						Name:   "User",
-						Value:  gh.Sender.Link(),
-						Inline: true,
-					},
-					{
-						Name:   "Environment",
-						Value:  env,
-						Inline: true,
-					},
-					{
-						Name:   "Commit",
-						Value:  gh.Repo.Commit(gh.Deployment.SHA),
-						Inline: true,
-					},
-					{
-						Name:   "Is Production (according to github)",
-						Value:  fmt.Sprintf("%t", gh.Deployment.ProductionEnvironment),
-						Inline: true,
-					},
-					{
-						Name:   "Is Transient Environment",
-						Value:  fmt.Sprintf("%t", gh.Deployment.TransientEnvironment),
-						Inline: true,
-					},
+					{Name: "Environment", Value: env, Inline: false},
+					{Name: "Commit", Value: gh.Repo.Commit(gh.Deployment.SHA), Inline: true},
+					{Name: "Production", Value: fmt.Sprintf("`%t`", gh.Deployment.ProductionEnvironment), Inline: true},
+					{Name: "Transient", Value: fmt.Sprintf("`%t`", gh.Deployment.TransientEnvironment), Inline: true},
+					{Name: "Webhook actor", Value: gh.Sender.Link(), Inline: false},
 				},
 			},
 		},

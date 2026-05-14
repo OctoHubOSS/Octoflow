@@ -4,12 +4,13 @@ use crate::{Context, Error};
 #[poise::command(slash_command, prefix_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
 pub async fn editrepo(
     ctx: Context<'_>,
-    #[description = "The repo ID"]
-    #[autocomplete = "super::autocomplete_repos"]
+    #[description = "Repo ID from `/list`"]
     id: String,
     #[description = "The new repo owner or organization"] owner: String,
     #[description = "The new repo name"] name: String,
-) -> Result<(), Error> { 
+) -> Result<(), Error> {
+    ctx.defer().await?;
+
     let data = ctx.data();
     let repo_name = (owner+"/"+&name).to_lowercase();
 
@@ -20,25 +21,6 @@ pub async fn editrepo(
 
     if repo.count.unwrap_or_default() == 0 {
         return Err("That repo doesn't exist!".into());
-    }
-
-    let provider_query = sqlx::query!(
-        "SELECT webhooks.provider FROM repos JOIN webhooks ON repos.webhook_id = webhooks.id WHERE repos.id = $1 AND repos.guild_id = $2",
-        &id, &ctx.guild_id().unwrap().to_string()
-    ).fetch_one(&data.pool).await?;
-
-    let provider = provider_query.provider.unwrap_or_else(|| "github".to_string());
-    let client = reqwest::Client::new();
-    let exists = if provider == "gitlab" {
-        let url = format!("https://gitlab.com/api/v4/projects/{}", urlencoding::encode(&repo_name));
-        client.get(&url).send().await.map(|r| r.status().is_success()).unwrap_or(false)
-    } else {
-        let url = format!("https://api.github.com/repos/{}", repo_name);
-        client.get(&url).header("User-Agent", "OctoFlow-Discord-Bot").send().await.map(|r| r.status().is_success()).unwrap_or(false)
-    };
-
-    if !exists {
-        return Err("That repository could not be found! Make sure it exists and is public.".into());
     }
 
     sqlx::query!(

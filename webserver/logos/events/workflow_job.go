@@ -1,9 +1,10 @@
 package events
 
 import (
-	"github.com/bwmarrin/discordgo"
-
 	"strconv"
+	"strings"
+
+	"github.com/bwmarrin/discordgo"
 )
 
 type WorkflowJobEvent struct {
@@ -46,7 +47,6 @@ type WorkflowJobEvent struct {
 func workflowJobFn(bytes []byte) (*discordgo.MessageSend, error) {
 	var gh WorkflowJobEvent
 
-	// Unmarshal the JSON into our struct
 	err := json.Unmarshal(bytes, &gh)
 
 	if err != nil {
@@ -61,63 +61,57 @@ func workflowJobFn(bytes []byte) (*discordgo.MessageSend, error) {
 		gh.WorkflowJob.Status = "No status yet!"
 	}
 
-	var fields = []*discordgo.MessageEmbedField{
-		{
-			Name:   "Workflow Name",
-			Value:  gh.WorkflowJob.WorkflowName,
-			Inline: true,
-		},
-		{
-			Name:   "User",
-			Value:  gh.Sender.Link(),
-			Inline: true,
-		},
-		{
-			Name:   "Status",
-			Value:  gh.WorkflowJob.Status,
-			Inline: true,
-		},
-		{
-			Name:   "Conclusion",
-			Value:  gh.WorkflowJob.Conclusion,
-			Inline: true,
-		},
-		{
-			Name:   "Branch",
-			Value:  gh.WorkflowJob.HeadBranch,
-			Inline: true,
-		},
-		{
-			Name:   "URL",
-			Value:  gh.WorkflowJob.HTMLURL,
-			Inline: true,
-		},
+	page := strings.TrimSpace(gh.WorkflowJob.HTMLURL)
+	if page == "" {
+		page = strings.TrimSpace(gh.WorkflowJob.RunURL)
+	}
+	if page == "" {
+		page = gh.Repo.HTMLURL
+	}
+
+	color := CheckConclusionEmbedColor(gh.WorkflowJob.Conclusion)
+	if strings.EqualFold(gh.WorkflowJob.Status, "in_progress") || strings.EqualFold(gh.WorkflowJob.Status, "queued") {
+		color = colorYellow
+	}
+
+	desc := "**" + gh.WorkflowJob.Name + "** · `" + gh.Action + "`\n"
+	desc += gh.Repo.MarkdownLink() + "\n**Workflow:** `" + gh.WorkflowJob.WorkflowName + "` · **Attempt:** `" + strconv.Itoa(gh.WorkflowJob.RunAttempt) + "`"
+	if page != "" && strings.HasPrefix(page, "http") {
+		desc += "\n\n[**View job**](" + page + ")"
+	}
+
+	fields := []*discordgo.MessageEmbedField{
+		{Name: "Status", Value: "`" + gh.WorkflowJob.Status + "`", Inline: true},
+		{Name: "Conclusion", Value: "`" + gh.WorkflowJob.Conclusion + "`", Inline: true},
+		{Name: "Branch", Value: "`" + gh.WorkflowJob.HeadBranch + "`", Inline: true},
+		{Name: "Commit", Value: gh.Repo.Commit(gh.WorkflowJob.HeadSHA), Inline: true},
+		{Name: "Actor", Value: gh.Sender.Link(), Inline: true},
 	}
 
 	for _, step := range gh.WorkflowJob.Steps {
 		if step.Conclusion == "" {
 			step.Conclusion = "No conclusion yet!"
 		}
-
 		if step.Status == "" {
 			step.Status = "No status yet!"
 		}
-
 		fields = append(fields, &discordgo.MessageEmbedField{
-			Name:   "Step " + strconv.Itoa(step.Number) + " (" + step.Name + ")",
-			Value:  "Status: " + step.Status + "\nConclusion: " + step.Conclusion,
-			Inline: true,
+			Name:   "Step " + strconv.Itoa(step.Number) + " · " + step.Name,
+			Value:  "**Status:** `" + step.Status + "`\n**Conclusion:** `" + step.Conclusion + "`",
+			Inline: false,
 		})
 	}
 
 	return &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{
 			{
-				Color:  colorGreen,
-				URL:    gh.Repo.HTMLURL,
-				Author: gh.Sender.AuthorEmbed(),
-				Title:  "Workflow Job: " + gh.WorkflowJob.Name,
-				Fields: fields,
+				Color:       color,
+				URL:         page,
+				Thumbnail:   gh.Repo.OwnerThumbnail(),
+				Author:      gh.Sender.AuthorEmbed(),
+				Title:       "Workflow job · " + gh.Repo.FullName,
+				Description: desc,
+				Fields:      fields,
 			},
 		},
 	}, nil

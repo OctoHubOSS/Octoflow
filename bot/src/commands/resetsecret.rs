@@ -7,10 +7,11 @@ use crate::{Context, Error};
 #[poise::command(slash_command, prefix_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
 pub async fn resetsecret(
     ctx: Context<'_>,
-    #[description = "The webhook ID"]
-    #[autocomplete = "super::autocomplete_webhooks"]
+    #[description = "Webhook ID from `/list`"]
     id: String,
 ) -> Result<(), Error> {
+    ctx.defer().await?;
+
     let data = ctx.data();
 
     let guild = sqlx::query!(
@@ -59,7 +60,7 @@ pub async fn resetsecret(
     .await?;
 
     dm.id.send_message(
-        &ctx,
+        ctx.http(),
         CreateMessage::new()
         .content(
             format!(

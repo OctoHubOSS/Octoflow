@@ -1,8 +1,6 @@
 package events
 
 import (
-	"fmt"
-
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -16,40 +14,32 @@ type ForkEvent struct {
 func forkFn(bytes []byte) (*discordgo.MessageSend, error) {
 	var gh ForkEvent
 
-	// Unmarshal the JSON into our struct
 	err := json.Unmarshal(bytes, &gh)
 
 	if err != nil {
 		return &discordgo.MessageSend{}, err
 	}
 
+	desc := "**Upstream:** " + gh.Repo.MarkdownLink() + "\n**Fork:** " + gh.Forkee.MarkdownLink()
+
+	thumb := gh.Forkee.OwnerThumbnail()
+	if thumb == nil {
+		thumb = gh.Repo.OwnerThumbnail()
+	}
+
 	return &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{
 			{
-				Color:  colorGreen,
-				URL:    gh.Forkee.HTMLURL,
-				Author: gh.Sender.AuthorEmbed(),
-				Title:  "New fork: " + gh.Forkee.FullName,
+				Color:       colorGreen,
+				URL:         gh.Forkee.HTMLURL,
+				Thumbnail:   thumb,
+				Author:      gh.Sender.AuthorEmbed(),
+				Title:       "Fork · " + gh.Forkee.FullName,
+				Description: desc,
 				Fields: []*discordgo.MessageEmbedField{
-					{
-						Name:  "User",
-						Value: gh.Sender.Link(),
-					},
-					{
-						Name:  "Original repo",
-						Value: gh.Repo.HTMLURL,
-					},
-					{
-						Name:  "Forked repo",
-						Value: gh.Forkee.HTMLURL,
-					},
-					{
-						Name:  "Visibility",
-						Value: fmt.Sprintf("%s -> %s", gh.Repo.Visibility(), gh.Forkee.Visibility()),
-					},
+					{Name: "Actor", Value: gh.Sender.Link(), Inline: false},
 				},
 			},
 		},
 	}, nil
-
 }

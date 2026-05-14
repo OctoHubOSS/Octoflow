@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/git-logs/client/webserver/logos/eventmodifiers"
 	"github.com/git-logs/client/webserver/logos/events"
@@ -34,6 +35,12 @@ const (
 	// EMBED_TOTAL_LIMIT is the maximum length of an embed
 	EMBED_TOTAL_LIMIT = 6000
 )
+
+// NormalizeGitHubEventHeader trims BOM/whitespace and lowercases GitHub's X-GitHub-Event value.
+func NormalizeGitHubEventHeader(h string) string {
+	h = strings.TrimPrefix(strings.TrimSpace(h), "\ufeff")
+	return strings.ToLower(h)
+}
 
 func updateLogEntries(logId, webhookId, guildId string, entries ...any) error {
 	// Check for log_id in database
@@ -136,6 +143,8 @@ func HandleEvents(
 	l := state.MapMutex.Lock(webhookId)
 	defer l.Unlock()
 
+	header = NormalizeGitHubEventHeader(header)
+
 	updateLogEntries(logId, webhookId, guildId, "Processing event: "+header, "provider="+provider, "repoName="+rw.Repo.FullName, "webhookID="+webhookId, "event="+header, "logId="+logId)
 
 	// Check event modifiers
@@ -205,6 +214,10 @@ func HandleEvents(
 		evtFn, ok = events.GitLabSupportedEvents[header]
 	} else {
 		evtFn, ok = events.SupportedEvents[header]
+		if !ok && events.LooksLikeRepositoryVulnerabilityAlert(bodyBytes) {
+			evtFn = events.RepositoryVulnerabilityAlert
+			ok = true
+		}
 	}
 
 	var messageSend *discordgo.MessageSend
@@ -227,73 +240,18 @@ func HandleEvents(
 		}
 
 		var embed = discordgo.MessageEmbed{
-			Title: cases.Title(language.English).String(strings.ReplaceAll(header, "_", " ")),
-			Color: 0x8b949e, // neutral gray for unknown events
+			Title:       cases.Title(language.English).String(strings.ReplaceAll(header, "_", " ")),
+			Description: "This webhook type is not fully customized yet; key payload fields are shown below.",
+			Color:       0x8B949E,
+			Timestamp:   time.Now().UTC().Format(time.RFC3339),
+			URL:         rw.Repo.HTMLURL,
 			Footer: &discordgo.MessageEmbedFooter{
-				Text: providerLabel + " · Unhandled Event",
+				Text:    rw.Repo.FullName + " · " + providerLabel + " · Unhandled",
+				IconURL: rw.Repo.Owner.AvatarURL,
 			},
 		}
 
-		// Extract meaningful top-level fields, skip complex nested objects
-		var embedFields []*discordgo.MessageEmbedField
-		for k, v := range fields {
-			// Skip large nested objects that render as ugly map[...] dumps
-			switch v.(type) {
-			case map[string]any:
-				// For known important nested objects, extract key info
-				nested := v.(map[string]any)
-				if k == "sender" || k == "user" {
-					if login, ok := nested["login"].(string); ok {
-						embedFields = append(embedFields, &discordgo.MessageEmbedField{
-							Name:   "User",
-							Value:  login,
-							Inline: true,
-						})
-					} else if name, ok := nested["name"].(string); ok {
-						embedFields = append(embedFields, &discordgo.MessageEmbedField{
-							Name:   "User",
-							Value:  name,
-							Inline: true,
-						})
-					}
-				} else if k == "repository" || k == "project" {
-					if fullName, ok := nested["full_name"].(string); ok {
-						embedFields = append(embedFields, &discordgo.MessageEmbedField{
-							Name:   "Repository",
-							Value:  fullName,
-							Inline: true,
-						})
-					} else if name, ok := nested["name"].(string); ok {
-						embedFields = append(embedFields, &discordgo.MessageEmbedField{
-							Name:   "Repository",
-							Value:  name,
-							Inline: true,
-						})
-					}
-				}
-				// Skip other nested objects entirely
-				continue
-			case []any:
-				// Skip arrays (they render terribly)
-				continue
-			}
-
-			val := fmt.Sprintf("%v", v)
-			if val == "" || val == "<nil>" {
-				continue
-			}
-			if len(val) > 200 {
-				val = val[:200] + "..."
-			}
-
-			embedFields = append(embedFields, &discordgo.MessageEmbedField{
-				Name:   cases.Title(language.English).String(strings.ReplaceAll(k, "_", " ")),
-				Value:  val,
-				Inline: true,
-			})
-		}
-
-		embed.Fields = embedFields
+		embed.Fields = buildFallbackWebhookEmbedFields(fields)
 
 		messageSend = &discordgo.MessageSend{
 			Embeds: []*discordgo.MessageEmbed{&embed},
@@ -315,6 +273,8 @@ func HandleEvents(
 		state.Logger.Error("Event handler returned nil messageSend", zap.String("repoName", rw.Repo.FullName), zap.String("webhookID", webhookId), zap.String("event", header), zap.String("logId", logId))
 		return
 	}
+
+	events.EnrichEmbedsBeforeSend(messageSend.Embeds, rw, provider)
 
 	for i, embed := range messageSend.Embeds {
 		messageSend.Embeds[i] = applyEmbedLimits(embed)

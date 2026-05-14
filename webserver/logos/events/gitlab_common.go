@@ -33,13 +33,18 @@ type GLUser struct {
 	Username  string `json:"username"`
 	Email     string `json:"email"`
 	AvatarURL string `json:"avatar_url"`
+	WebURL    string `json:"web_url"`
 }
 
 func (u GLUser) AuthorEmbed() *discordgo.MessageEmbedAuthor {
-	return &discordgo.MessageEmbedAuthor{
+	author := &discordgo.MessageEmbedAuthor{
 		Name:    u.Name + " (@" + u.Username + ")",
 		IconURL: u.AvatarURL,
 	}
+	if u.WebURL != "" {
+		author.URL = u.WebURL
+	}
+	return author
 }
 
 func (u GLUser) Link(baseURL string) string {
@@ -74,4 +79,18 @@ type GLRepository struct {
 	URL         string `json:"url"`
 	Description string `json:"description"`
 	Homepage    string `json:"homepage"`
+}
+
+// glProjectThumbnail returns a Discord thumbnail when the project has an avatar URL.
+func glProjectThumbnail(p GLProject) *discordgo.MessageEmbedThumbnail {
+	if strings.TrimSpace(p.AvatarURL) == "" {
+		return nil
+	}
+	return &discordgo.MessageEmbedThumbnail{URL: p.AvatarURL}
+}
+
+// glFooterForProject shows the provider in the embed footer; the project path is a clickable
+// markdown line in the description (see EnrichEmbedsBeforeSend).
+func glFooterForProject(_ GLProject) *discordgo.MessageEmbedFooter {
+	return &discordgo.MessageEmbedFooter{Text: "GitLab"}
 }

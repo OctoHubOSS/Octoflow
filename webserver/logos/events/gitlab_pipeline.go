@@ -84,7 +84,7 @@ func glPipelineFn(bytes []byte) (*discordgo.MessageSend, error) {
 				Color:  color,
 				URL:    gl.Project.WebURL + "/-/pipelines/" + fmt.Sprintf("%d", gl.ObjectAttributes.ID),
 				Author: gl.User.AuthorEmbed(),
-				Title:  fmt.Sprintf("Pipeline #%d %s on %s", gl.ObjectAttributes.ID, gl.ObjectAttributes.Status, gl.Project.PathWithNamespace),
+				Title:  fmt.Sprintf("Pipeline · #%d · %s · %s", gl.ObjectAttributes.ID, gl.ObjectAttributes.Status, gl.Project.PathWithNamespace),
 				Fields: []*discordgo.MessageEmbedField{
 					{
 						Name:   "Ref",
@@ -186,7 +186,7 @@ func glJobFn(bytes []byte) (*discordgo.MessageSend, error) {
 			{
 				Color:  color,
 				Author: gl.User.AuthorEmbed(),
-				Title:  fmt.Sprintf("Job #%d %s in %s", gl.BuildID, gl.BuildStatus, gl.ProjectName),
+				Title:  fmt.Sprintf("Job · #%d · %s · %s", gl.BuildID, gl.BuildStatus, gl.ProjectName),
 				Fields: fields,
 				Footer: &discordgo.MessageEmbedFooter{
 					Text: "GitLab",

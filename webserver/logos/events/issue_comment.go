@@ -2,8 +2,11 @@ package events
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 type IssueCommentEvent struct {
@@ -21,63 +24,56 @@ type IssueCommentEvent struct {
 func issueCommentFn(bytes []byte) (*discordgo.MessageSend, error) {
 	var gh IssueCommentEvent
 
-	// Unmarshal the JSON into our struct
 	err := json.Unmarshal(bytes, &gh)
 
 	if err != nil {
 		return &discordgo.MessageSend{}, err
 	}
 
-	var body string = gh.Issue.Body
-	if len(gh.Issue.Body) > 1000 {
-		body = gh.Issue.Body[:1000] + "..."
+	issueBody := strings.TrimSpace(gh.Issue.Body)
+	if len(issueBody) > 400 {
+		issueBody = issueBody[:397] + "…"
+	}
+	if issueBody == "" {
+		issueBody = "_No issue body._"
 	}
 
-	if body == "" {
-		body = "No description available"
+	comment := strings.TrimSpace(gh.Comment.Body)
+	if len(comment) > 1200 {
+		comment = comment[:1197] + "…"
 	}
-
-	var comment string = gh.Comment.Body
-
-	if len(gh.Comment.Body) > 1000 {
-		comment = gh.Comment.Body[:1000] + "..."
-	}
-
 	if comment == "" {
-		comment = "No description available"
+		comment = "_Empty comment._"
 	}
 
-	var color int
+	color := colorGreen
 	if gh.Action == "deleted" {
 		color = colorRed
-	} else {
-		color = colorGreen
 	}
+
+	actionLabel := cases.Title(language.English).String(strings.ReplaceAll(gh.Action, "_", " "))
+
+	page := strings.TrimSpace(gh.Comment.HTMLURL)
+	if page == "" {
+		page = gh.Issue.HTMLURL
+	}
+
+	desc := fmt.Sprintf("**%s** on [#%d — %s](%s)\n\n**Comment**\n%s",
+		actionLabel, gh.Issue.Number, gh.Issue.Title, gh.Issue.HTMLURL, comment)
+	desc += "\n\n**Issue excerpt**\n" + issueBody
 
 	return &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{
 			{
-				Color:  color,
-				URL:    gh.Issue.HTMLURL,
-				Author: gh.Sender.AuthorEmbed(),
-				Title:  fmt.Sprintf("Comment on %s (#%d) %s", gh.Repo.FullName, gh.Issue.Number, gh.Action),
+				Color:       color,
+				URL:         page,
+				Thumbnail:   gh.Sender.EmbedThumbnail(),
+				Author:      gh.Sender.AuthorEmbed(),
+				Title:       "Issue comment · " + gh.Repo.FullName,
+				Description: desc,
 				Fields: []*discordgo.MessageEmbedField{
-					{
-						Name:  "User",
-						Value: gh.Sender.Link(),
-					},
-					{
-						Name:  "Title",
-						Value: gh.Issue.Title,
-					},
-					{
-						Name:  "Parent Issue",
-						Value: body,
-					},
-					{
-						Name:  "Comment",
-						Value: comment,
-					},
+					{Name: "Comment author", Value: gh.Comment.User.Link(), Inline: true},
+					{Name: "Webhook actor", Value: gh.Sender.Link(), Inline: true},
 				},
 			},
 		},

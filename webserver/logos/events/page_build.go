@@ -2,6 +2,7 @@ package events
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -24,59 +25,52 @@ type PageBuildEvent struct {
 func pageBuildFn(bytes []byte) (*discordgo.MessageSend, error) {
 	var gh PageBuildEvent
 
-	// Unmarshal the JSON into our struct
 	err := json.Unmarshal(bytes, &gh)
 
 	if err != nil {
 		return &discordgo.MessageSend{}, err
 	}
 
+	color := colorGreen
+	st := strings.ToLower(strings.TrimSpace(gh.Build.Status))
+	if st == "errored" || st == "failed" || strings.TrimSpace(gh.Build.Error.Message) != "" {
+		color = colorRed
+	} else if st == "building" || st == "pending" {
+		color = colorYellow
+	}
+
+	dur := "unknown"
+	if gh.Build.Duration > 0 {
+		dur = fmt.Sprintf("%d s", gh.Build.Duration)
+	}
+
+	errMsg := strings.TrimSpace(gh.Build.Error.Message)
+	if errMsg == "" {
+		errMsg = "_None_"
+	}
+
+	desc := "**Status:** `" + gh.Build.Status + "` · **Duration:** `" + dur + "`\n**Commit:** " + gh.Repo.Commit(gh.Build.Commit)
+	if errMsg != "_None_" {
+		desc += "\n\n**Error**\n```\n" + errMsg + "\n```"
+	}
+
+	ts := ""
+	if !gh.Build.CreatedAt.IsZero() {
+		ts = gh.Build.CreatedAt.UTC().Format(time.RFC3339)
+	}
+
 	return &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{
 			{
-				Color:     colorGreen,
-				URL:       gh.Repo.HTMLURL,
-				Author:    gh.Sender.AuthorEmbed(),
-				Title:     "Page build: " + gh.Repo.FullName,
-				Timestamp: gh.Build.CreatedAt.Format(time.RFC3339),
+				Color:       color,
+				URL:         gh.Repo.HTMLURL,
+				Thumbnail:   gh.Repo.OwnerThumbnail(),
+				Author:      gh.Sender.AuthorEmbed(),
+				Title:       "GitHub Pages · " + gh.Repo.FullName,
+				Description: desc,
+				Timestamp:   ts,
 				Fields: []*discordgo.MessageEmbedField{
-					{
-						Name:  "User",
-						Value: gh.Sender.Link(),
-					},
-					{
-						Name:  "Commit",
-						Value: gh.Repo.Commit(gh.Build.Commit),
-					},
-					{
-						Name: "Duration",
-						Value: func() string {
-							if gh.Build.Duration == 0 {
-								return "unknown"
-							}
-							return fmt.Sprintf("%d seconds", gh.Build.Duration)
-						}(),
-					},
-					{
-						Name: "Errors",
-						Value: func() string {
-							if gh.Build.Error.Message == "" {
-								return "No errors yet!"
-							}
-							return gh.Build.Error.Message
-						}(),
-						Inline: true,
-					},
-					{
-						Name: "Status",
-						Value: func() string {
-							if gh.Build.Status == "" {
-								return "unknown"
-							}
-							return gh.Build.Status
-						}(),
-						Inline: true,
-					},
+					{Name: "Actor", Value: gh.Sender.Link(), Inline: false},
 				},
 			},
 		},

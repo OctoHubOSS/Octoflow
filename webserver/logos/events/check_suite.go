@@ -1,6 +1,8 @@
 package events
 
 import (
+	"strings"
+
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -16,6 +18,7 @@ type CheckSuiteEvent struct {
 		Status     string `json:"status,omitempty"`
 		Conclusion string `json:"conclusion,omitempty"`
 		URL        string `json:"url,omitempty"`
+		HTMLURL    string `json:"html_url,omitempty"`
 		Before     string `json:"before,omitempty"`
 		HeadCommit struct {
 			ID        string `json:"id,omitempty"`
@@ -39,7 +42,6 @@ type CheckSuiteEvent struct {
 func checkSuiteFn(bytes []byte) (*discordgo.MessageSend, error) {
 	var gh CheckSuiteEvent
 
-	// Unmarshal the JSON into our struct
 	err := json.Unmarshal(bytes, &gh)
 
 	if err != nil {
@@ -54,38 +56,42 @@ func checkSuiteFn(bytes []byte) (*discordgo.MessageSend, error) {
 		gh.CheckSuite.Status = "No status yet!"
 	}
 
+	page := strings.TrimSpace(gh.CheckSuite.HTMLURL)
+	if page == "" {
+		page = gh.Repo.HTMLURL
+	}
+
+	color := CheckConclusionEmbedColor(gh.CheckSuite.Conclusion)
+
+	msg := strings.TrimSpace(gh.CheckSuite.HeadCommit.Message)
+	if len(msg) > 240 {
+		msg = msg[:237] + "…"
+	}
+	if msg == "" {
+		msg = "_No commit message._"
+	}
+	commitLine := msg + "\n" + gh.Repo.Commit(gh.CheckSuite.HeadCommit.ID)
+
+	desc := "**Check suite** `" + gh.Action + "` on " + gh.Repo.MarkdownLink()
+	if page != "" && strings.HasPrefix(page, "http") {
+		desc += "\n\n[**View check suite**](" + page + ")"
+	}
+
 	return &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{
 			{
-				Color:  colorGreen,
-				URL:    gh.Repo.HTMLURL,
-				Author: gh.Sender.AuthorEmbed(),
-				Title:  "Check Suite " + gh.Action + " on " + gh.Repo.FullName,
+				Color:       color,
+				URL:         page,
+				Thumbnail:   gh.Repo.OwnerThumbnail(),
+				Author:      gh.Sender.AuthorEmbed(),
+				Title:       "Check suite · " + gh.Repo.FullName,
+				Description: desc,
 				Fields: []*discordgo.MessageEmbedField{
-					{
-						Name:   "User",
-						Value:  gh.Sender.Link(),
-						Inline: true,
-					},
-					{
-						Name:   "Status",
-						Value:  gh.CheckSuite.Status,
-						Inline: true,
-					},
-					{
-						Name:   "Conclusion",
-						Value:  gh.CheckSuite.Conclusion,
-						Inline: true,
-					},
-					{
-						Name:   "URL",
-						Value:  gh.CheckSuite.URL,
-						Inline: true,
-					},
-					{
-						Name:  "Commit",
-						Value: gh.CheckSuite.HeadCommit.Message + " | " + gh.Repo.Commit(gh.CheckSuite.HeadCommit.ID),
-					},
+					{Name: "Status", Value: "`" + gh.CheckSuite.Status + "`", Inline: true},
+					{Name: "Conclusion", Value: "`" + gh.CheckSuite.Conclusion + "`", Inline: true},
+					{Name: "Branch", Value: "`" + gh.CheckSuite.HeadBranch + "`", Inline: true},
+					{Name: "Head commit", Value: commitLine, Inline: false},
+					{Name: "Actor", Value: gh.Sender.Link(), Inline: true},
 				},
 			},
 		},

@@ -21,7 +21,7 @@ impl Default for Config {
             database_url: String::from(""),
             token: String::from(""),
             api_url: vec![String::from("https://v2.gitlogs.xyz")],
-            proxy_url: Some(String::from("http://127.0.0.1:3219")),
+            proxy_url: None,
         }
     }
 }

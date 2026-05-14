@@ -1,24 +1,21 @@
 use poise::serenity_prelude::CreateMessage;
 use rand::distributions::{Alphanumeric, DistString};
 
-use crate::{Context, Error, config};
+use super::webhook_provider::WebhookProvider;
+use crate::{config, Context, Error};
 
 /// Creates a new webhook in a guild for sending GitHub/GitLab notifications
 #[poise::command(slash_command, prefix_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
 pub async fn newhook(
     ctx: Context<'_>,
     #[description = "The comment for the webhook"] comment: String,
-    #[description = "Provider: github or gitlab"] provider: Option<String>,
+    #[description = "Where this webhook receives events from"] provider: WebhookProvider,
     #[description = "Is the webhook broken?"] broken: Option<bool>,
 ) -> Result<(), Error> {
-    let data = ctx.data();
+    ctx.defer().await?;
 
-    let provider = provider.unwrap_or_else(|| "github".to_string()).to_lowercase();
-    
-    if provider != "github" && provider != "gitlab" {
-        ctx.say("Invalid provider! Use `github` or `gitlab`").await?;
-        return Ok(());
-    }
+    let data = ctx.data();
+    let provider_str = provider.as_db();
 
     // Check if the guild exists on our DB
     let guild = sqlx::query!(
@@ -27,7 +24,7 @@ pub async fn newhook(
     )
     .fetch_one(&data.pool)
     .await?;
-    
+
     if guild.count.unwrap_or_default() == 0 {
         // If it doesn't, create it
         sqlx::query!(
@@ -62,7 +59,8 @@ pub async fn newhook(
     let dm = match dm_channel {
         Ok(dm) => dm,
         Err(_) => {
-            ctx.say("I couldn't create a DM channel with you, please enable DMs from server members").await?;
+            ctx.say("I couldn't create a DM channel with you, please enable DMs from server members")
+                .await?;
             return Ok(());
         }
     };
@@ -73,23 +71,24 @@ pub async fn newhook(
         &ctx.guild_id().unwrap().to_string(),
         comment,
         webh_secret,
-	    broken.unwrap_or(false),
-        provider,
+        broken.unwrap_or(false),
+        provider_str,
         ctx.author().id.to_string(),
         ctx.author().id.to_string(),
     )
     .execute(&data.pool)
     .await?;
 
-    ctx.say("Webhook created! Trying to DM you the credentials...").await?;
-
     let backup_domains = if config::CONFIG.api_url.len() > 1 {
-        format!("\n**Backup domains:** {}", config::CONFIG.api_url[1..].join(", "))
+        format!(
+            "\n**Backup domains:** {}",
+            config::CONFIG.api_url[1..].join(", ")
+        )
     } else {
         String::new()
     };
 
-    let dm_content = if provider == "gitlab" {
+    let dm_content = if provider_str == "gitlab" {
         format!(
             "\
 **GitLab Webhook Setup** 🦊
@@ -104,10 +103,10 @@ When creating repositories with the bot, use `{id}` as the webhook ID.
 {backup_domains}
 ⚠️ **The above URL and secret is unique — do not share it with others**
 🗑️ **Delete this message after you're done!**",
-            api_url=config::CONFIG.api_url[0],
-            backup_domains=backup_domains,
-            id=id,
-            webh_secret=webh_secret
+            api_url = config::CONFIG.api_url[0],
+            backup_domains = backup_domains,
+            id = id,
+            webh_secret = webh_secret
         )
     } else {
         format!(
@@ -125,20 +124,19 @@ When creating repositories with the bot, use `{id}` as the webhook ID.
 {backup_domains}
 ⚠️ **The above URL and secret is unique — do not share it with others**
 🗑️ **Delete this message after you're done!**",
-            api_url=config::CONFIG.api_url[0],
-            backup_domains=backup_domains,
-            id=id,
-            webh_secret=webh_secret
+            api_url = config::CONFIG.api_url[0],
+            backup_domains = backup_domains,
+            id = id,
+            webh_secret = webh_secret
         )
     };
 
-    dm.id.send_message(
-        &ctx,
-        CreateMessage::new()
-        .content(dm_content)
-    ).await?;
+    dm.id
+        .send_message(ctx.http(), CreateMessage::new().content(dm_content))
+        .await?;
 
-    ctx.say("Webhook created! Check your DMs for the webhook information.").await?;
-    
+    ctx.say("Webhook created! Check your DMs for the webhook information.")
+        .await?;
+
     Ok(())
 }
