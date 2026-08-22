@@ -112,8 +112,29 @@ async fn main() {
 
     if let Some(v) = &config::CONFIG.proxy_url {
         info!("Setting proxy url to {}", v);
-        http = http.proxy(v).ratelimiter_disabled(true);
-    }    
+
+        // The proxy strips whatever Authorization header we send and
+        // replaces it with its own shared credential, so we pass our own
+        // bot's token via X-Upstream-Authorization instead — the proxy's
+        // `discord` service is opted in (allowCallerOverride) to honor
+        // that header and forward it as the real Authorization header
+        // sent to Discord. Without this, every request through the proxy
+        // silently authenticates as whichever bot the proxy itself is
+        // configured with, not this one.
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert(
+            "X-Upstream-Authorization",
+            reqwest::header::HeaderValue::from_str(&format!("Bot {}", config::CONFIG.token))
+                .expect("token should be a valid header value"),
+        );
+
+        let reqwest_client = reqwest::Client::builder()
+            .default_headers(headers)
+            .build()
+            .expect("failed to build reqwest client");
+
+        http = http.proxy(v).ratelimiter_disabled(true).client(reqwest_client);
+    }
 
     let http = http.build();
 
