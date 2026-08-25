@@ -91,7 +91,7 @@ async fn event_listener<'a>(
             );
 
             // Set activity
-            ctx.serenity_context.set_activity(Some(ActivityData::playing("/help")));
+            ctx.serenity_context.set_activity(Some(ActivityData::playing("octoflow.ca")));
         }
         _ => {}
     }
