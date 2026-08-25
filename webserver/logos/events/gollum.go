@@ -1,9 +1,8 @@
 package events
 
 import (
+	"fmt"
 	"time"
-
-	"strings"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -33,14 +32,9 @@ func gollumFn(bytes []byte) (*discordgo.MessageSend, error) {
 
 	for _, page := range gh.Pages {
 		fields = append(fields, &discordgo.MessageEmbedField{
-			Name:  page.Title + " (" + page.Action + ")",
+			Name:  truncateText(page.Title+" ("+page.Action+")", 256),
 			Value: page.HTMLURL,
 		})
-	}
-
-	pageNames := make([]string, len(gh.Pages))
-	for i, page := range gh.Pages {
-		pageNames[i] = page.Title
 	}
 
 	return &discordgo.MessageSend{
@@ -50,7 +44,7 @@ func gollumFn(bytes []byte) (*discordgo.MessageSend, error) {
 				Timestamp: time.Now().UTC().Format(time.RFC3339),
 				URL:       gh.Repo.HTMLURL,
 				Author:    gh.Sender.AuthorEmbed(),
-				Title:     "Wiki updated on " + gh.Repo.FullName + ": " + strings.Join(pageNames, ", "),
+				Title:     truncateText(fmt.Sprintf("Wiki updated on %s (%d page(s))", gh.Repo.FullName, len(gh.Pages)), 256),
 				Fields:    fields,
 			},
 		},

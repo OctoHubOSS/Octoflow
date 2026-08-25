@@ -131,7 +131,7 @@ pub async fn create(
         }
 
         // Create the event modifier
-        let modifier_id = Alphanumeric.sample_string(&mut rand::thread_rng(), 256);
+        let modifier_id = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
         sqlx::query!(
             "INSERT INTO event_modifiers (id, webhook_id, events, repo_id, blacklisted, whitelisted, redirect_channel, guild_id, priority, created_by, last_updated_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
             modifier_id,
@@ -246,7 +246,8 @@ pub async fn list(
 
         cr = cr.embed(
             CreateEmbed::new()
-                .title(format!("Modifier ``{}``", modifier.id))
+                .title(format!("{} Modifier", kind))
+                .field("ID", format!("``{}``", modifier.id), false)
                 .field("Webhook", modifier.webhook_id, true)
                 .field("Repo", modifier.repo_id.unwrap_or_else(|| "All repos".to_string()), true)
                 .field("Priority", modifier.priority.to_string(), true)

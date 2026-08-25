@@ -67,7 +67,8 @@ pub async fn list(
 
                     cr = cr.embed(
                         CreateEmbed::new()
-                        .title(format!("Webhook \"{}\"", webhook.comment))
+                        .title("Webhook")
+                        .field("Comment", webhook.comment.clone(), false)
                         .field("Webhook ID", webhook_id.clone(), false)
                         .field("Hook URL (visit for hook info, add to Github to recieve events)", api_url.clone()+"/kittycat?id="+&webhook_id, false)
 			.field("Marked as Broken", format!("{}", webhook.broken), false)
@@ -92,7 +93,9 @@ pub async fn list(
 #[poise::command(slash_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
 pub async fn newhook(
     ctx: Context<'_>,
-    #[description = "The comment for the webhook"] comment: String,
+    #[description = "The comment for the webhook"]
+    #[max_length = 200]
+    comment: String,
     #[description = "Is the webhook broken?"] broken: Option<bool>,
 ) -> Result<(), Error> {
     let data = ctx.data();
@@ -195,7 +198,9 @@ When creating repositories, use `{id}` as the ID.
 pub async fn edithook(
     ctx: Context<'_>,
     #[description = "The webhook ID"] id: String,
-    #[description = "The comment for the webhook"] comment: Option<String>,
+    #[description = "The comment for the webhook"]
+    #[max_length = 200]
+    comment: Option<String>,
     #[description = "Is the webhook broken?"] broken: Option<bool>,
     #[description = "The new secret for the webhook"] webhook_secret: Option<String>,
 ) -> Result<(), Error> {

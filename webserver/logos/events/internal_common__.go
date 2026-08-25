@@ -159,3 +159,17 @@ type RepoWrapper struct {
 	Repo   Repository `json:"repository"`
 	Action string     `json:"action"`
 }
+
+// truncateText shortens s to at most max runes, marking the cut with an
+// ellipsis. Used wherever GitHub-supplied text of unbounded length (wiki
+// page titles, joined lists, etc.) lands in a Discord embed title or field
+// name, both of which are hard-capped by Discord at 256 characters.
+func truncateText(s string, max int) string {
+	r := []rune(s)
+
+	if len(r) <= max {
+		return s
+	}
+
+	return string(r[:max-1]) + "…"
+}
