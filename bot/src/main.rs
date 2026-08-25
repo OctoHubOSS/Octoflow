@@ -23,7 +23,7 @@ pub struct Data {
     pub pool: sqlx::PgPool,
 }
 
-#[poise::command(prefix_command, hide_in_help)]
+#[poise::command(slash_command, owners_only, hide_in_help)]
 async fn register(ctx: Context<'_>) -> Result<(), Error> {
     poise::builtins::register_application_commands_buttons(ctx).await?;
     Ok(())
@@ -89,6 +89,17 @@ async fn event_listener<'a>(
                 "{} is ready!",
                 data_about_bot.user.name
             );
+
+            // Slash commands only ever reach Discord through an explicit
+            // register call. With prefix commands (and the `register`
+            // prefix command that used to trigger this) removed, nothing
+            // else does that anymore, so any new/changed command silently
+            // never appears until this runs. Registering globally on every
+            // startup is idempotent (Discord no-ops when nothing changed)
+            // and keeps the command list correct without a manual step.
+            if let Err(e) = poise::builtins::register_globally(&ctx.serenity_context.http, &ctx.options().commands).await {
+                error!("Failed to register application commands: {:?}", e);
+            }
 
             // Set activity
             ctx.serenity_context.set_activity(Some(ActivityData::playing("octoflow.ca")));
