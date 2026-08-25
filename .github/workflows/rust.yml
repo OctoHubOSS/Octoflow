@@ -16,6 +16,7 @@ jobs:
       run:
         working-directory: bot
     strategy:
+      fail-fast: false
       matrix:
         toolchain:
           - stable
@@ -32,5 +33,10 @@ jobs:
       - name: Install mold
         run: sudo apt-get install -y mold
       - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
+      # nightly is a moving target by design — a transient regression in the
+      # compiler itself (not our code) shouldn't block CI. stable/beta stay
+      # hard-blocking; nightly failures are visible but non-fatal.
       - run: cargo build --verbose
+        continue-on-error: ${{ matrix.toolchain == 'nightly' }}
       - run: cargo test --verbose
+        continue-on-error: ${{ matrix.toolchain == 'nightly' }}
