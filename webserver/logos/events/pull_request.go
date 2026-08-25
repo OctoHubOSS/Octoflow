@@ -1,6 +1,8 @@
 package events
 
 import (
+	"time"
+
 	"fmt"
 
 	"github.com/bwmarrin/discordgo"
@@ -42,10 +44,11 @@ func pullRequestFn(bytes []byte) (*discordgo.MessageSend, error) {
 	return &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{
 			{
-				Color:  color,
-				URL:    gh.PullRequest.HTMLURL,
-				Author: gh.Sender.AuthorEmbed(),
-				Title:  fmt.Sprintf("Pull Request %s on %s (#%d)", gh.Action, gh.Repo.FullName, gh.PullRequest.Number),
+				Color:     color,
+				Timestamp: time.Now().UTC().Format(time.RFC3339),
+				URL:       gh.PullRequest.HTMLURL,
+				Author:    gh.Sender.AuthorEmbed(),
+				Title:     fmt.Sprintf("Pull Request %s on %s (#%d)", gh.Action, gh.Repo.FullName, gh.PullRequest.Number),
 				Fields: []*discordgo.MessageEmbedField{
 					{
 						Name:  "Action",

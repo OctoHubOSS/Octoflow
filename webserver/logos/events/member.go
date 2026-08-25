@@ -6,16 +6,16 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-type StarEvent struct {
+type MemberEvent struct {
 	Action string     `json:"action"`
 	Repo   Repository `json:"repository"`
 	Sender User       `json:"sender"`
+	Member User       `json:"member"`
 }
 
-func starFn(bytes []byte) (*discordgo.MessageSend, error) {
-	var gh StarEvent
+func memberFn(bytes []byte) (*discordgo.MessageSend, error) {
+	var gh MemberEvent
 
-	// Unmarshal the JSON into our struct
 	err := json.Unmarshal(bytes, &gh)
 
 	if err != nil {
@@ -23,26 +23,30 @@ func starFn(bytes []byte) (*discordgo.MessageSend, error) {
 	}
 
 	var color int
-	var title string
-	if gh.Action == "created" {
-		color = colorGreen
-		title = "Starred: " + gh.Repo.FullName
-	} else {
+	if gh.Action == "removed" {
 		color = colorRed
-		title = "Unstarred: " + gh.Repo.FullName
+	} else {
+		color = colorGreen
 	}
+
 	return &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Color:     color,
 				Timestamp: time.Now().UTC().Format(time.RFC3339),
 				URL:       gh.Repo.HTMLURL,
-				Title:     title,
 				Author:    gh.Sender.AuthorEmbed(),
+				Title:     "Collaborator " + gh.Action + " on " + gh.Repo.FullName,
 				Fields: []*discordgo.MessageEmbedField{
 					{
-						Name:  "User",
-						Value: gh.Sender.Link(),
+						Name:   "Member",
+						Value:  gh.Member.Link(),
+						Inline: true,
+					},
+					{
+						Name:   "By",
+						Value:  gh.Sender.Link(),
+						Inline: true,
 					},
 				},
 			},

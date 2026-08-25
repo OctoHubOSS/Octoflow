@@ -3,46 +3,42 @@ package events
 import (
 	"time"
 
+	"fmt"
+
 	"github.com/bwmarrin/discordgo"
 )
 
-type StarEvent struct {
-	Action string     `json:"action"`
+type TeamAddEvent struct {
 	Repo   Repository `json:"repository"`
 	Sender User       `json:"sender"`
+	Team   struct {
+		Name    string `json:"name"`
+		Slug    string `json:"slug"`
+		HTMLUrl string `json:"html_url"`
+	} `json:"team"`
 }
 
-func starFn(bytes []byte) (*discordgo.MessageSend, error) {
-	var gh StarEvent
+func teamAddFn(bytes []byte) (*discordgo.MessageSend, error) {
+	var gh TeamAddEvent
 
-	// Unmarshal the JSON into our struct
 	err := json.Unmarshal(bytes, &gh)
 
 	if err != nil {
 		return &discordgo.MessageSend{}, err
 	}
 
-	var color int
-	var title string
-	if gh.Action == "created" {
-		color = colorGreen
-		title = "Starred: " + gh.Repo.FullName
-	} else {
-		color = colorRed
-		title = "Unstarred: " + gh.Repo.FullName
-	}
 	return &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{
 			{
-				Color:     color,
+				Color:     colorGreen,
 				Timestamp: time.Now().UTC().Format(time.RFC3339),
 				URL:       gh.Repo.HTMLURL,
-				Title:     title,
 				Author:    gh.Sender.AuthorEmbed(),
+				Title:     "Team added to " + gh.Repo.FullName,
 				Fields: []*discordgo.MessageEmbedField{
 					{
-						Name:  "User",
-						Value: gh.Sender.Link(),
+						Name:  "Team",
+						Value: fmt.Sprintf("[%s](%s)", gh.Team.Name, gh.Team.HTMLUrl),
 					},
 				},
 			},

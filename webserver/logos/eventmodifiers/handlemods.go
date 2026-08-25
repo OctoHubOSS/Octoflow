@@ -1,7 +1,9 @@
 package eventmodifiers
 
 import (
-	"github.com/git-logs/client/webserver/state"
+	"strings"
+
+	"github.com/OctoHubOSS/Octoflow/webserver/state"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -11,15 +13,9 @@ func isNull(s pgtype.Text) bool {
 }
 
 type EventCheck struct {
-	// Whether or not the ACL check passed
-	ACLFail string
-
-	// What channel to redirect to
+	ACLFail         string
 	ChannelOverride string
-
-	// Overridden by higher priority modifiers
-	// Only applies to whitelists
-	Overriden bool
+	Overriden       bool
 }
 
 type EventModifier struct {
@@ -36,7 +32,6 @@ func GetEventModifiers(
 	webhookId string,
 	ghRepoId string,
 ) ([]*EventModifier, error) {
-	// Get all event_modifiers for webhook
 	rows, err := state.Pool.Query(state.Context, "SELECT id, repo_id, events, blacklisted, whitelisted, redirect_channel, priority FROM "+state.TableEventModifiers+" WHERE webhook_id = $1 ORDER BY priority DESC", webhookId)
 
 	if err != nil {
@@ -62,12 +57,7 @@ func GetEventModifiers(
 			return nil, err
 		}
 
-		// Check repo id first
-		//
-		// If repo_id is null, then it matches all repos
-		// If repo_id is not null, then it matches only that repo
 		if ghRepoId != "" && (!isNull(repoId) && repoId.String != ghRepoId) {
-			// Look for another modifier, this one doesn't match
 			continue
 		}
 
@@ -90,7 +80,6 @@ func CheckEventAllowed(
 	ghRepoId string,
 	ghEvent string,
 ) (*EventCheck, error) {
-	// Get all event_modifiers for webhook
 	modifiers, err := GetEventModifiers(webhookId, ghRepoId)
 
 	if err != nil {
@@ -99,22 +88,20 @@ func CheckEventAllowed(
 
 	var resultantEventCheck *EventCheck = &EventCheck{}
 
+	lowerGhEvent := strings.ToLower(ghEvent)
+
 	for _, modifier := range modifiers {
-		// Check if the event is in the list of events
 		var matched bool
 		for _, event := range modifier.Events {
-			if isMatch(event, ghEvent) {
+			if isMatch(strings.ToLower(event), lowerGhEvent) {
 				matched = true
 				break
 			}
 		}
 
 		if !matched {
-			// Ensure that the modifier does not set whitelisted to true
 			if modifier.Whitelisted {
-				// Check if theres also a matching redirect channel
 				if resultantEventCheck.Overriden {
-					// We can short-circuit here because we have a matching redirect channel on a higher priority modifier
 					return resultantEventCheck, nil
 				}
 
@@ -123,7 +110,6 @@ func CheckEventAllowed(
 				}, nil
 			}
 
-			// Look for another modifier if this one doesn't match
 			continue
 		}
 
@@ -133,13 +119,10 @@ func CheckEventAllowed(
 			}, nil
 		}
 
-		// Set the channel override if it's not null on the modifier
 		if modifier.RedirectChannel != "" {
 			resultantEventCheck.ChannelOverride = modifier.RedirectChannel
 			resultantEventCheck.Overriden = true
 		}
-
-		// We cannot short-circuit here because we may have modifiers matching the same event
 	}
 
 	return resultantEventCheck, nil

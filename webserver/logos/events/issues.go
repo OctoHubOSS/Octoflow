@@ -1,6 +1,8 @@
 package events
 
 import (
+	"time"
+
 	"fmt"
 
 	"github.com/bwmarrin/discordgo"
@@ -43,6 +45,7 @@ func issuesFn(bytes []byte) (*discordgo.MessageSend, error) {
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Color:       color,
+				Timestamp:   time.Now().UTC().Format(time.RFC3339),
 				URL:         gh.Issue.HTMLURL,
 				Author:      gh.Sender.AuthorEmbed(),
 				Description: body,

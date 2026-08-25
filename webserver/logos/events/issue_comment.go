@@ -1,6 +1,8 @@
 package events
 
 import (
+	"time"
+
 	"fmt"
 
 	"github.com/bwmarrin/discordgo"
@@ -57,10 +59,11 @@ func issueCommentFn(bytes []byte) (*discordgo.MessageSend, error) {
 	return &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{
 			{
-				Color:  color,
-				URL:    gh.Issue.HTMLURL,
-				Author: gh.Sender.AuthorEmbed(),
-				Title:  fmt.Sprintf("Comment on %s (#%d) %s", gh.Repo.FullName, gh.Issue.Number, gh.Action),
+				Color:     color,
+				Timestamp: time.Now().UTC().Format(time.RFC3339),
+				URL:       gh.Issue.HTMLURL,
+				Author:    gh.Sender.AuthorEmbed(),
+				Title:     fmt.Sprintf("Comment on %s (#%d) %s", gh.Repo.FullName, gh.Issue.Number, gh.Action),
 				Fields: []*discordgo.MessageEmbedField{
 					{
 						Name:  "User",

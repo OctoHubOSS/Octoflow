@@ -1,6 +1,8 @@
 package events
 
 import (
+	"time"
+
 	"fmt"
 	"strings"
 
@@ -72,10 +74,11 @@ func pushFn(bytes []byte) (*discordgo.MessageSend, error) {
 	return &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{
 			{
-				Color:  colorGreen,
-				URL:    gh.Repo.HTMLURL,
-				Author: gh.Sender.AuthorEmbed(),
-				Title:  "Push on " + gh.Repo.FullName,
+				Color:     colorGreen,
+				Timestamp: time.Now().UTC().Format(time.RFC3339),
+				URL:       gh.Repo.HTMLURL,
+				Author:    gh.Sender.AuthorEmbed(),
+				Title:     "Push on " + gh.Repo.FullName,
 				Fields: []*discordgo.MessageEmbedField{
 					{
 						Name:  "Branch",

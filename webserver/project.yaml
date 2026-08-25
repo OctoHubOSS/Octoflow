@@ -1,7 +1,7 @@
 pkg:
-  user: gitlogs
+  user: octohub
   language: go
-  project: "github-v2"
+  project: "octoflow"
   binary: "webserver"
   service: "github-api"
   lang_opts:

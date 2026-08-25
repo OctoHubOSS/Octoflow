@@ -1,0 +1,71 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, webhook_id, repo_id, events, blacklisted, whitelisted, redirect_channel, priority, created_at\n         FROM event_modifiers\n         WHERE guild_id = $1 AND ($2::text IS NULL OR webhook_id = $2)\n         ORDER BY priority DESC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "webhook_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "repo_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "events",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 4,
+        "name": "blacklisted",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "whitelisted",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
+        "name": "redirect_channel",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "priority",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "c1733b13d89d02a374961b188a8beefe66e3e1c33fe4ba8661fc85a00c7a56fc"
+}

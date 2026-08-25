@@ -1,6 +1,8 @@
 package events
 
 import (
+	"time"
+
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -27,10 +29,11 @@ func watchFn(bytes []byte) (*discordgo.MessageSend, error) {
 	return &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{
 			{
-				Color:  color,
-				URL:    gh.Repo.HTMLURL,
-				Title:  title,
-				Author: gh.Sender.AuthorEmbed(),
+				Color:     color,
+				Timestamp: time.Now().UTC().Format(time.RFC3339),
+				URL:       gh.Repo.HTMLURL,
+				Title:     title,
+				Author:    gh.Sender.AuthorEmbed(),
 				Fields: []*discordgo.MessageEmbedField{
 					{
 						Name:  "User",

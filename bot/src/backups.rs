@@ -41,7 +41,6 @@ struct ProtocolCheck {
 /// Backups the repositories of a webhook to a JSON file
 #[poise::command(
     slash_command,
-    prefix_command,
     guild_only,
     required_permissions = "MANAGE_GUILD"
 )]
@@ -61,7 +60,7 @@ pub async fn backup(
 
     if guild.count.unwrap_or_default() == 0 {
         // If it doesn't, return a error
-        return Err("You don't have any webhooks in this guild! Use ``/newhook`` (or ``git!newhook``) to create one".into());
+        return Err("You don't have any webhooks in this guild! Use ``/newhook`` to create one".into());
     }
 
     // Check if the webhook exists
@@ -74,7 +73,7 @@ pub async fn backup(
     .await?;
 
     if webhook.count.unwrap_or_default() == 0 {
-        return Err("You don't have any webhooks in this guild! Use ``/newhook`` (or ``git!newhook``) to create one".into());
+        return Err("You don't have any webhooks in this guild! Use ``/newhook`` to create one".into());
     }
 
     let rows = sqlx::query!(
@@ -133,7 +132,7 @@ pub async fn backup(
 }
 
 /// Restore a created backup to a webhook
-#[poise::command(category = "Backups", slash_command, prefix_command, guild_only)]
+#[poise::command(category = "Backups", slash_command, guild_only)]
 pub async fn restore(
     ctx: Context<'_>,
     #[description = "The webhook ID to restore the backup to"] id: String,
@@ -151,7 +150,7 @@ pub async fn restore(
 
     if guild.count.unwrap_or_default() == 0 {
         // If it doesn't, return a error
-        return Err("You don't have any webhooks in this guild! Use ``/newhook`` (or ``git!newhook``) to create one".into());
+        return Err("You don't have any webhooks in this guild! Use ``/newhook`` to create one".into());
     }
 
     // Check if the webhook exists
@@ -165,7 +164,7 @@ pub async fn restore(
 
     if webhook.count.unwrap_or_default() == 0 {
         return Err(
-            "That webhook doesn't exist! Use ``/newhook`` (or ``git!newhook``) to create one"
+            "That webhook doesn't exist! Use ``/newhook`` to create one"
                 .into(),
         );
     }

@@ -3,11 +3,11 @@ package state
 import (
 	"os"
 
-	"github.com/git-logs/client/webserver/config"
-	"github.com/git-logs/client/webserver/mapofmu"
+	"github.com/OctoHubOSS/Octoflow/webserver/config"
+	"github.com/OctoHubOSS/Octoflow/webserver/mapofmu"
 
+	"github.com/PlexiOSS/Keel/genconfig"
 	"github.com/bwmarrin/discordgo"
-	"github.com/infinitybotlist/eureka/genconfig"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -33,7 +33,6 @@ var (
 func Setup() {
 	MapMutex = mapofmu.New[string]()
 
-	// Initialize logger
 	w := zapcore.AddSync(os.Stdout)
 
 	var level = zap.InfoLevel
@@ -95,10 +94,6 @@ func Setup() {
 	}
 }
 
-// Must be called when embedding, PrepareForEmbedding creates the table names from config and may do other setup
-// in the future
-//
-// Note that config.GetTable must be set before calling this function
 func PrepareForEmbedding() {
 	for _, table := range TableList {
 		*table = Config.GetTable(*table)
@@ -108,23 +103,6 @@ func PrepareForEmbedding() {
 }
 
 func ApplyMigrations() {
-	/*
-		webhooks.created_by TEXT NOT NULL [set unfilled to '']
-		webhooks.last_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-		webhooks.last_updated_by TEXT NOT NULL [set unfilled to '']
-
-		repos.created_by TEXT NOT NULL [set unfilled to '']
-		repos.last_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-		repos.last_updated_by TEXT NOT NULL [set unfilled to '']
-
-		event_modifiers.created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-		event_modifiers.created_by TEXT NOT NULL [set unfilled to '']
-		event_modifiers.last_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-		event_modifiers.last_updated_by TEXT NOT NULL [set unfilled to '']
-
-		webhook_logs.webhook_id text not null references webhooks (id) ON UPDATE CASCADE ON DELETE CASCADE [drop all if webhook_id unset]
-	*/
-
 	tx, err := Pool.Begin(Context)
 
 	if err != nil {

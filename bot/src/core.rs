@@ -5,7 +5,7 @@ use rand::distributions::{Alphanumeric, DistString};
 use crate::{Context, Error, config};
 
 /// Lsts all webhooks in a guild with their respective repos and channel IDs
-#[poise::command(slash_command, prefix_command, guild_only, required_permissions = "MANAGE_GUILD")]
+#[poise::command(slash_command, guild_only, required_permissions = "MANAGE_GUILD")]
 pub async fn list(
     ctx: Context<'_>,
 ) -> Result<(), Error> {
@@ -28,7 +28,7 @@ pub async fn list(
         .execute(&data.pool)
         .await?;
 
-        ctx.say("This guild doesn't have any webhooks yet. Get started with ``/newhook`` (or ``git!newhook``)").await?;
+        ctx.say("This guild doesn't have any webhooks yet. Get started with ``/newhook``").await?;
     } else {
         // Get all webhooks
         let webhooks = sqlx::query!(
@@ -47,6 +47,24 @@ pub async fn list(
 
                 for webhook in webhooks {
                     let webhook_id = webhook.id;
+
+                    let repos = sqlx::query!(
+                        "SELECT id, repo_name, channel_id FROM repos WHERE webhook_id = $1",
+                        webhook_id
+                    )
+                    .fetch_all(&data.pool)
+                    .await?;
+
+                    let repos_field = if repos.is_empty() {
+                        "No repos yet. Use ``/newrepo`` to add one".to_string()
+                    } else {
+                        repos
+                            .iter()
+                            .map(|r| format!("``{}`` {} -> <#{}>", r.id, r.repo_name, r.channel_id))
+                            .collect::<Vec<String>>()
+                            .join("\n")
+                    };
+
                     cr = cr.embed(
                         CreateEmbed::new()
                         .title(format!("Webhook \"{}\"", webhook.comment))
@@ -54,6 +72,7 @@ pub async fn list(
                         .field("Hook URL (visit for hook info, add to Github to recieve events)", api_url.clone()+"/kittycat?id="+&webhook_id, false)
 			.field("Marked as Broken", format!("{}", webhook.broken), false)
                         .field("Created at", webhook.created_at.to_string(), false)
+                        .field("Repos", repos_field, false)
                     );
                 };
 
@@ -61,7 +80,7 @@ pub async fn list(
             },
             Err(e) => {
                 error!("Error fetching webhooks: {:?}", e);
-                ctx.say("This guild doesn't have any webhooks yet. Get started with ``/newhook`` (or ``git!newhook``)").await?;
+                ctx.say("This guild doesn't have any webhooks yet. Get started with ``/newhook``").await?;
             }
         }
     }
@@ -70,7 +89,7 @@ pub async fn list(
 }
 
 /// Creates a new webhook in a guild for sending Github notifications
-#[poise::command(slash_command, prefix_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
+#[poise::command(slash_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
 pub async fn newhook(
     ctx: Context<'_>,
     #[description = "The comment for the webhook"] comment: String,
@@ -152,7 +171,7 @@ Set the `Secret` field to `{webh_secret}` and ensure that Content Type is set to
 
 When creating repositories, use `{id}` as the ID.
 
-**Backup domains (replace {api_url} with these if gitlogs fails):** {api_domains}
+**Backup domains (replace {api_url} with these if Octoflow fails):** {api_domains}
             
 **Note that the above URL and secret is unique and should not be shared with others**
 
@@ -172,7 +191,7 @@ When creating repositories, use `{id}` as the ID.
 }
 
 /// Edits a webhook
-#[poise::command(slash_command, prefix_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
+#[poise::command(slash_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
 pub async fn edithook(
     ctx: Context<'_>,
     #[description = "The webhook ID"] id: String,
@@ -267,7 +286,7 @@ pub async fn edithook(
 }
 
 /// Creates a new repository for a webhook
-#[poise::command(slash_command, prefix_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
+#[poise::command(slash_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
 pub async fn newrepo(
     ctx: Context<'_>,
     #[description = "The webhook ID to use"] webhook_id: String,
@@ -287,7 +306,7 @@ pub async fn newrepo(
     
     if guild.count.unwrap_or_default() == 0 {
         // If it doesn't, return a error
-        return Err("You don't have any webhooks in this guild! Use ``/newhook`` (or ``git!newhook``) to create one".into());
+        return Err("You don't have any webhooks in this guild! Use ``/newhook`` to create one".into());
     }
 
     // Check webhook count
@@ -301,7 +320,7 @@ pub async fn newrepo(
     let count = webhook_count.count.unwrap_or_default();
 
     if count == 0 {
-        Err("You don't have any webhooks in this guild! Use ``/newhook`` (or ``git!newhook``) to create one".into())
+        Err("You don't have any webhooks in this guild! Use ``/newhook`` to create one".into())
     } else {
         // Check if the webhook exists
         let webhook = sqlx::query!(
@@ -313,7 +332,7 @@ pub async fn newrepo(
         .await?;
 
         if webhook.count.unwrap_or_default() == 0 {
-            return Err("That webhook doesn't exist! Use ``/newhook`` (or ``git!newhook``) to create one".into());
+            return Err("That webhook doesn't exist! Use ``/newhook`` to create one".into());
         }
 
         let repo_name = (owner+"/"+&name).to_lowercase();
@@ -350,13 +369,13 @@ pub async fn newrepo(
 
             Ok(())
         } else {
-            Err("That repo already exists! Use ``/delrepo`` (or ``git!delrepo``) to delete it".into())
+            Err("That repo already exists! Use ``/delrepo`` to delete it".into())
         }
     }
 }
 
 /// Deletes a webhook
-#[poise::command(slash_command, prefix_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
+#[poise::command(slash_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
 pub async fn delhook(
     ctx: Context<'_>,
     #[description = "The webhook ID"] id: String,
@@ -373,7 +392,7 @@ pub async fn delhook(
     
     if guild.count.unwrap_or_default() == 0 {
         // If it doesn't, return a error
-        return Err("You don't have any webhooks in this guild! Use ``/newhook`` (or ``git!newhook``) to create one".into());
+        return Err("You don't have any webhooks in this guild! Use ``/newhook`` to create one".into());
     }
 
     sqlx::query!(
@@ -390,7 +409,7 @@ pub async fn delhook(
 }
 
 /// Deletes a repository
-#[poise::command(slash_command, prefix_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
+#[poise::command(slash_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
 pub async fn delrepo(
     ctx: Context<'_>,
     #[description = "The repo ID"] id: String,
@@ -411,7 +430,7 @@ pub async fn delrepo(
 }
 
 /// Updates the channel for a repository
-#[poise::command(slash_command, prefix_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
+#[poise::command(slash_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
 pub async fn setrepochannel(
     ctx: Context<'_>,
     #[description = "The repo ID"] id: String,
@@ -429,7 +448,7 @@ pub async fn setrepochannel(
     .await?;
 
     if repo.count.unwrap_or_default() == 0 {
-        return Err("That repo doesn't exist! Use ``/newrepo`` (or ``git!newrepo``) to create one".into());
+        return Err("That repo doesn't exist! Use ``/newrepo`` to create one".into());
     }
 
     sqlx::query!(
@@ -448,7 +467,7 @@ pub async fn setrepochannel(
 }
 
 /// Resets a webhook secret. DMs must be open
-#[poise::command(slash_command, prefix_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
+#[poise::command(slash_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
 pub async fn resetsecret(
     ctx: Context<'_>,
     #[description = "The webhook ID"] id: String,
@@ -465,7 +484,7 @@ pub async fn resetsecret(
     
     if guild.count.unwrap_or_default() == 0 {
         // If it doesn't, return a error
-        return Err("You don't have any webhooks in this guild! Use ``/newhook`` (or ``git!newhook``) to create one".into());
+        return Err("You don't have any webhooks in this guild! Use ``/newhook`` to create one".into());
     }
 
     // Check if the webhook exists
@@ -478,7 +497,7 @@ pub async fn resetsecret(
     .await?;
 
     if webhook.count.unwrap_or_default() == 0 {
-        return Err("That webhook doesn't exist! Use ``/newhook`` (or ``git!newhook``) to create one".into());
+        return Err("That webhook doesn't exist! Use ``/newhook`` to create one".into());
     }
 
     let webh_secret = Alphanumeric.sample_string(&mut rand::thread_rng(), 256);
@@ -522,6 +541,72 @@ Update this webhooks information in GitHub settings now. Your webhook will not a
     ).await?;
 
     ctx.say("Webhook secret updated! Check your DMs for the webhook information.").await?;
-    
+
+    Ok(())
+}
+
+/// Edits a repository's name and/or channel. Only the fields you provide are changed
+#[poise::command(slash_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
+pub async fn editrepo(
+    ctx: Context<'_>,
+    #[description = "The repo ID"] id: String,
+    #[description = "The new repo owner/name (e.g. octocat/Hello-World)"] repo_name: Option<String>,
+    #[description = "The new channel to send to"] channel: Option<ChannelId>,
+) -> Result<(), Error> {
+    let data = ctx.data();
+
+    // Check if the repo exists
+    let repo = sqlx::query!(
+        "SELECT COUNT(1) FROM repos WHERE id = $1 AND guild_id = $2",
+        id,
+        ctx.guild_id().unwrap().to_string()
+    )
+    .fetch_one(&data.pool)
+    .await?;
+
+    if repo.count.unwrap_or_default() == 0 {
+        return Err("That repo doesn't exist! Use ``/newrepo`` to create one".into());
+    }
+
+    let mut tx = data.pool.begin().await?;
+
+    if let Some(repo_name) = repo_name {
+        let repo_name = repo_name.to_lowercase();
+
+        sqlx::query!(
+            "UPDATE repos SET repo_name = $1 WHERE id = $2 AND guild_id = $3",
+            repo_name,
+            id,
+            ctx.guild_id().unwrap().to_string()
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+
+    if let Some(channel) = channel {
+        sqlx::query!(
+            "UPDATE repos SET channel_id = $1 WHERE id = $2 AND guild_id = $3",
+            channel.to_string(),
+            id,
+            ctx.guild_id().unwrap().to_string()
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+
+    // Update last_updated_at and last_updated_by regardless
+    sqlx::query!(
+        "UPDATE repos SET last_updated_at = NOW(), last_updated_by = $1 WHERE id = $2 AND guild_id = $3",
+        ctx.author().id.to_string(),
+        id,
+        ctx.guild_id().unwrap().to_string()
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    ctx.say("Repo updated successfully!").await?;
+
     Ok(())
 }

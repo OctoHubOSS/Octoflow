@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/git-logs/client/webserver/logos/eventmodifiers"
-	"github.com/git-logs/client/webserver/logos/events"
-	"github.com/git-logs/client/webserver/state"
+	"github.com/OctoHubOSS/Octoflow/webserver/logos/eventmodifiers"
+	"github.com/OctoHubOSS/Octoflow/webserver/logos/events"
+	"github.com/OctoHubOSS/Octoflow/webserver/state"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
@@ -17,26 +17,17 @@ import (
 )
 
 const (
-	// EMBED_TITLE_LIMIT is the maximum length of an embed title
-	EMBED_TITLE_LIMIT = 256
-	// EMBED_DESCRIPTION_LIMIT is the maximum length of an embed description
+	EMBED_TITLE_LIMIT       = 256
 	EMBED_DESCRIPTION_LIMIT = 4096
-	// EMBED_FIELDS_MAX_COUNT is the maximum number of fields in an embed
-	EMBED_FIELDS_MAX_COUNT = 25
-	// EMBED_FIELD_NAME_LIMIT is the maximum length of an embed field name
-	EMBED_FIELD_NAME_LIMIT = 256
-	// EMBED_FIELD_VALUE_LIMIT is the maximum length of an embed field value
+	EMBED_FIELDS_MAX_COUNT  = 25
+	EMBED_FIELD_NAME_LIMIT  = 256
 	EMBED_FIELD_VALUE_LIMIT = 1024
-	// EMBED_FOOTER_TEXT_LIMIT is the maximum length of an embed footer text
 	EMBED_FOOTER_TEXT_LIMIT = 2048
-	// EMBED_AUTHOR_NAME_LIMIT is the maximum length of an embed author name
 	EMBED_AUTHOR_NAME_LIMIT = 256
-	// EMBED_TOTAL_LIMIT is the maximum length of an embed
-	EMBED_TOTAL_LIMIT = 6000
+	EMBED_TOTAL_LIMIT       = 6000
 )
 
 func updateLogEntries(logId, webhookId, guildId string, entries ...any) error {
-	// Check for log_id in database
 	var count int
 
 	err := state.Pool.QueryRow(state.Context, "SELECT COUNT(*) FROM "+state.TableWebhookLogs+" WHERE log_id = $1 AND webhook_id = $2 AND guild_id = $3", logId, webhookId, guildId).Scan(&count)
@@ -48,7 +39,6 @@ func updateLogEntries(logId, webhookId, guildId string, entries ...any) error {
 	entry := fmt.Sprintln(entries...)
 
 	if count == 0 {
-		// Insert new log_id
 		_, err = state.Pool.Exec(state.Context, "INSERT INTO "+state.TableWebhookLogs+" (log_id, webhook_id, guild_id, entries) VALUES ($1, $2, $3, $4)", logId, webhookId, guildId, []string{entry})
 		return err
 	}
@@ -65,7 +55,6 @@ func applyEmbedLimits(e *discordgo.MessageEmbed) *discordgo.MessageEmbed {
 			return 0
 		}
 
-		// If limit is 6000 and max_chars - total_chars is 1000, return 1000 etc.
 		return min(limit, maxChars-totalChars)
 	}
 
@@ -76,7 +65,6 @@ func applyEmbedLimits(e *discordgo.MessageEmbed) *discordgo.MessageEmbed {
 			return ""
 		}
 
-		// Avoid panic as go doesn't handle slices out of bounds
 		if len(s) <= charLimit {
 			*totalChars += len(s)
 			return s
@@ -87,35 +75,27 @@ func applyEmbedLimits(e *discordgo.MessageEmbed) *discordgo.MessageEmbed {
 	}
 
 	if e.Title != "" {
-		// Slice title to EMBED_TITLE_LIMIT
 		e.Title = _sliceChars(e.Title, &totalChars, EMBED_TITLE_LIMIT, EMBED_TOTAL_LIMIT)
 	}
 
 	if e.Description != "" {
-		// Slice description to EMBED_DESCRIPTION_LIMIT
 		e.Description = _sliceChars(e.Description, &totalChars, EMBED_DESCRIPTION_LIMIT, EMBED_TOTAL_LIMIT)
 	}
 
-	// Slice out fields if there are too many
 	if len(e.Fields) > EMBED_FIELDS_MAX_COUNT {
 		e.Fields = e.Fields[:EMBED_FIELDS_MAX_COUNT]
 	}
 
 	for i, f := range e.Fields {
-		// Slice field name to EMBED_FIELD_NAME_LIMIT
 		e.Fields[i].Name = _sliceChars(f.Name, &totalChars, EMBED_FIELD_NAME_LIMIT, EMBED_TOTAL_LIMIT)
-
-		// Slice field value to EMBED_FIELD_VALUE_LIMIT
 		e.Fields[i].Value = _sliceChars(f.Value, &totalChars, EMBED_FIELD_VALUE_LIMIT, EMBED_TOTAL_LIMIT)
 	}
 
 	if e.Footer != nil {
-		// Slice footer text to EMBED_FOOTER_TEXT_LIMIT
 		e.Footer.Text = _sliceChars(e.Footer.Text, &totalChars, EMBED_FOOTER_TEXT_LIMIT, EMBED_TOTAL_LIMIT)
 	}
 
 	if e.Author != nil {
-		// Slice author name to EMBED_AUTHOR_NAME_LIMIT
 		e.Author.Name = _sliceChars(e.Author.Name, &totalChars, EMBED_AUTHOR_NAME_LIMIT, EMBED_TOTAL_LIMIT)
 	}
 
@@ -131,13 +111,11 @@ func HandleEvents(
 	webhookId string,
 	guildId string,
 ) {
-	// Ensure one at a time
 	l := state.MapMutex.Lock(webhookId)
 	defer l.Unlock()
 
 	updateLogEntries(logId, webhookId, guildId, "Processing event: "+header, "repoName="+rw.Repo.FullName, "webhookID="+webhookId, "event="+header, "logId="+logId)
 
-	// Check event modifiers
 	modres, err := eventmodifiers.CheckEventAllowed(webhookId, repoId, header)
 
 	if err != nil {
@@ -160,12 +138,9 @@ func HandleEvents(
 
 	var channelIds []string
 
-	// Channel override comes from the event modifier, in the case of an event modifier, we only send
-	// to the channel specified in the event modifier, not to all channels set
 	if modres.ChannelOverride != "" {
 		channelIds = []string{modres.ChannelOverride}
 	} else {
-		// Get channel ID from database
 		rows, err := state.Pool.Query(state.Context, "SELECT channel_id FROM "+state.TableRepos+" WHERE repo_name = $1 AND webhook_id = $2", strings.ToLower(rw.Repo.FullName), webhookId)
 
 		if err != nil {
@@ -191,7 +166,6 @@ func HandleEvents(
 		}
 	}
 
-	// Early return, don't waste resources if there are no channels to send to
 	if len(channelIds) == 0 {
 		return
 	}
@@ -227,7 +201,6 @@ func HandleEvents(
 			Embeds: []*discordgo.MessageEmbed{&embed},
 		}
 	} else {
-		// This event can be personalized
 		updateLogEntries(logId, webhookId, guildId, "SUCCESS: This event can be personalized")
 		messageSend, err = evtFn(bodyBytes)
 

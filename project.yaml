@@ -1,13 +1,13 @@
 pkg:
-  user: gitlogs
+  user: octohub
   language: dummy
-  project: "github-v2"
+  project: "octoflow"
   binary: "-"
   service: "-"
   lang_opts:
   env:
   submodules:
-    - name: "Git Logs Bot"
+    - name: "Octoflow Bot"
       path: "bot"
-    - name: "Git Logs Webserver/API"
+    - name: "Octoflow Webserver/API"
       path: "webserver"

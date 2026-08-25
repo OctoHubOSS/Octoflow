@@ -13,12 +13,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/git-logs/client/webserver/logos/eventmodifiers"
-	"github.com/git-logs/client/webserver/logos/events"
-	"github.com/git-logs/client/webserver/pneuma"
-	"github.com/git-logs/client/webserver/state"
+	"github.com/OctoHubOSS/Octoflow/webserver/logos/eventmodifiers"
+	"github.com/OctoHubOSS/Octoflow/webserver/logos/events"
+	"github.com/OctoHubOSS/Octoflow/webserver/pneuma"
+	"github.com/OctoHubOSS/Octoflow/webserver/state"
 
-	"github.com/infinitybotlist/eureka/crypto"
+	"github.com/PlexiOSS/Keel/crypto"
 	"go.uber.org/zap"
 )
 
@@ -206,9 +206,9 @@ func HandleWebhookRoute(w http.ResponseWriter, r *http.Request) {
 	err = state.Pool.QueryRow(state.Context, "SELECT id, repo_name FROM "+state.TableRepos+" WHERE repo_name = $1 AND webhook_id = $2", strings.ToLower(rw.Repo.FullName), id).Scan(&repoID, &repoName)
 
 	if err != nil {
-		state.Logger.Warn("This repository is not configured on git-logs, ignoring", zap.Error(err), zap.String("repoName", rw.Repo.FullName), zap.String("webhookID", id))
+		state.Logger.Warn("This repository is not configured on Octoflow, ignoring", zap.Error(err), zap.String("repoName", rw.Repo.FullName), zap.String("webhookID", id))
 		w.WriteHeader(http.StatusPartialContent)
-		w.Write([]byte("This repository is not configured on git-logs, ignoring"))
+		w.Write([]byte("This repository is not configured on Octoflow, ignoring"))
 		return
 	}
 
@@ -233,7 +233,7 @@ func HandleWebhookRoute(w http.ResponseWriter, r *http.Request) {
 
 func IndexPage(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`This is the API for the Git Logs service. It handles webhooks from GitHub and sends them to Discord.
+	w.Write([]byte(`This is the API for the Octoflow service. It handles webhooks from GitHub and sends them to Discord.
 
 You may also be looking for:
 

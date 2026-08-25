@@ -1,7 +1,7 @@
 pkg:
-  user: gitlogs
+  user: octohub
   language: rust
-  project: "github-v2"
+  project: "octoflow"
   binary: "bot"
   service: "github-bot"
   lang_opts:

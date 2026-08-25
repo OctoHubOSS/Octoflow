@@ -1,6 +1,8 @@
 package events
 
 import (
+	"time"
+
 	"fmt"
 	"strings"
 
@@ -78,10 +80,11 @@ func teamFn(bytes []byte) (*discordgo.MessageSend, error) {
 	return &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{
 			{
-				Color:  color,
-				URL:    gh.Repo.HTMLURL,
-				Author: gh.Sender.AuthorEmbed(),
-				Title:  "Team " + strings.Replace(gh.Action, "_", " ", -1),
+				Color:     color,
+				Timestamp: time.Now().UTC().Format(time.RFC3339),
+				URL:       gh.Repo.HTMLURL,
+				Author:    gh.Sender.AuthorEmbed(),
+				Title:     "Team " + strings.Replace(gh.Action, "_", " ", -1),
 				Fields: []*discordgo.MessageEmbedField{
 					{
 						Name:  "Team",

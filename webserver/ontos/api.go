@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/git-logs/client/webserver/logos/events"
-	"github.com/git-logs/client/webserver/state"
+	"github.com/OctoHubOSS/Octoflow/webserver/logos/events"
+	"github.com/OctoHubOSS/Octoflow/webserver/state"
 )
 
 // Precomputed values

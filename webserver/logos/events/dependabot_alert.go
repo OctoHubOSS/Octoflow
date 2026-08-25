@@ -1,6 +1,10 @@
 package events
 
-import "github.com/bwmarrin/discordgo"
+import (
+	"time"
+
+	"github.com/bwmarrin/discordgo"
+)
 
 type DependabotAlertEvent struct {
 	Action string     `json:"action"`
@@ -140,9 +144,10 @@ func dependabotAlertFn(bytes []byte) (*discordgo.MessageSend, error) {
 	return &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{
 			{
-				Color: color,
-				URL:   gh.Alert.HTMLURL,
-				Title: "Dependabot Alert on " + gh.Repo.FullName + " " + gh.Alert.State,
+				Color:     color,
+				Timestamp: time.Now().UTC().Format(time.RFC3339),
+				URL:       gh.Alert.HTMLURL,
+				Title:     "Dependabot Alert on " + gh.Repo.FullName + " " + gh.Alert.State,
 				Fields: []*discordgo.MessageEmbedField{
 					{
 						Name:   "URL",

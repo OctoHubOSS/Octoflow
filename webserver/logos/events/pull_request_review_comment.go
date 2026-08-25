@@ -1,6 +1,8 @@
 package events
 
 import (
+	"time"
+
 	"strconv"
 
 	"github.com/bwmarrin/discordgo"
@@ -58,6 +60,7 @@ func pullRequestReviewCommentFn(bytes []byte) (*discordgo.MessageSend, error) {
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Color:       color,
+				Timestamp:   time.Now().UTC().Format(time.RFC3339),
 				URL:         gh.PullRequest.HTMLURL,
 				Author:      gh.Sender.AuthorEmbed(),
 				Description: comment,

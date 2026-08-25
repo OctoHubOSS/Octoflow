@@ -1,6 +1,8 @@
 package events
 
 import (
+	"time"
+
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -57,10 +59,11 @@ func checkSuiteFn(bytes []byte) (*discordgo.MessageSend, error) {
 	return &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{
 			{
-				Color:  colorGreen,
-				URL:    gh.Repo.HTMLURL,
-				Author: gh.Sender.AuthorEmbed(),
-				Title:  "Check Suite " + gh.Action + " on " + gh.Repo.FullName,
+				Color:     colorGreen,
+				Timestamp: time.Now().UTC().Format(time.RFC3339),
+				URL:       gh.Repo.HTMLURL,
+				Author:    gh.Sender.AuthorEmbed(),
+				Title:     "Check Suite " + gh.Action + " on " + gh.Repo.FullName,
 				Fields: []*discordgo.MessageEmbedField{
 					{
 						Name:   "User",

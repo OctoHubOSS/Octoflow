@@ -91,7 +91,7 @@ async fn event_listener<'a>(
             );
 
             // Set activity
-            ctx.serenity_context.set_activity(Some(ActivityData::playing("git!help")));
+            ctx.serenity_context.set_activity(Some(ActivityData::playing("/help")));
         }
         _ => {}
     }
@@ -155,10 +155,6 @@ async fn main() {
     let framework = poise::Framework::new(
         poise::FrameworkOptions {
             initialize_owners: true,
-            prefix_options: poise::PrefixFrameworkOptions {
-                prefix: Some("git!".into()),
-                ..poise::PrefixFrameworkOptions::default()
-            },
             event_handler: |ctx, event| Box::pin(event_listener(ctx, event)),
             commands: vec![
                 register(),
@@ -166,7 +162,9 @@ async fn main() {
                 help::help(),
                 core::list(),
                 core::newhook(),
+                core::edithook(),
                 core::newrepo(),
+                core::editrepo(),
                 core::delhook(),
                 core::delrepo(),
                 core::setrepochannel(),

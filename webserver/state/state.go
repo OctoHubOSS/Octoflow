@@ -3,8 +3,8 @@ package state
 import (
 	"context"
 
-	"github.com/git-logs/client/webserver/config"
-	"github.com/git-logs/client/webserver/mapofmu"
+	"github.com/OctoHubOSS/Octoflow/webserver/config"
+	"github.com/OctoHubOSS/Octoflow/webserver/mapofmu"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/go-playground/validator/v10"
@@ -22,7 +22,7 @@ var (
 	Logger     *zap.Logger
 	Config     *config.Config
 	MapMutex   *mapofmu.M[string]
-	IsEmbedded bool // Whether gitlogs is being embedded into another service
+	IsEmbedded bool
 )
 
 const (
