@@ -36,7 +36,22 @@ func main() {
 
 	r.Route("/api/dashboard", func(r chi.Router) {
 		r.Use(ontos.DashboardAuth)
+
 		r.Get("/guilds/{guildId}", ontos.ApiDashboardGuild)
+		r.Get("/guilds/{guildId}/channels", ontos.ApiDashboardChannels)
+		r.Post("/guilds/{guildId}/webhooks", ontos.ApiDashboardCreateWebhook)
+
+		r.Patch("/webhooks/{id}", ontos.ApiDashboardUpdateWebhook)
+		r.Post("/webhooks/{id}/reset-secret", ontos.ApiDashboardResetWebhookSecret)
+		r.Delete("/webhooks/{id}", ontos.ApiDashboardDeleteWebhook)
+		r.Post("/webhooks/{webhookId}/repos", ontos.ApiDashboardCreateRepo)
+		r.Post("/webhooks/{webhookId}/modifiers", ontos.ApiDashboardCreateModifier)
+
+		r.Patch("/repos/{id}", ontos.ApiDashboardUpdateRepo)
+		r.Delete("/repos/{id}", ontos.ApiDashboardDeleteRepo)
+
+		r.Patch("/modifiers/{id}", ontos.ApiDashboardUpdateModifier)
+		r.Delete("/modifiers/{id}", ontos.ApiDashboardDeleteModifier)
 	})
 
 	http.ListenAndServe(state.Config.Port, r)
