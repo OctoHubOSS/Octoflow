@@ -34,5 +34,10 @@ func main() {
 	r.HandleFunc("/api/health", ontos.ApiHealth)
 	r.HandleFunc("/api/status/history", ontos.ApiStatusHistory)
 
+	r.Route("/api/dashboard", func(r chi.Router) {
+		r.Use(ontos.DashboardAuth)
+		r.Get("/guilds/{guildId}", ontos.ApiDashboardGuild)
+	})
+
 	http.ListenAndServe(state.Config.Port, r)
 }
