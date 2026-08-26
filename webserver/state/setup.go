@@ -15,11 +15,13 @@ import (
 )
 
 var (
-	TableEventModifiers = "event_modifiers"
-	TableRepos          = "repos"
-	TableGuilds         = "guilds"
-	TableWebhooks       = "webhooks"
-	TableWebhookLogs    = "webhook_logs"
+	TableEventModifiers  = "event_modifiers"
+	TableRepos           = "repos"
+	TableGuilds          = "guilds"
+	TableWebhooks        = "webhooks"
+	TableWebhookLogs     = "webhook_logs"
+	TableBotHeartbeat    = "bot_heartbeat"
+	TableStatusSnapshots = "status_snapshots"
 
 	TableList = []*string{
 		&TableEventModifiers,
@@ -27,6 +29,8 @@ var (
 		&TableGuilds,
 		&TableWebhooks,
 		&TableWebhookLogs,
+		&TableBotHeartbeat,
+		&TableStatusSnapshots,
 	}
 )
 
@@ -159,6 +163,22 @@ func ApplyMigrations() {
 		ALTER TABLE `+TableWebhookLogs+` ADD COLUMN IF NOT EXISTS guild_id TEXT NOT NULL REFERENCES `+TableGuilds+` (id) ON UPDATE CASCADE ON DELETE CASCADE;
 
 		ALTER TABLE `+TableWebhooks+` ADD COLUMN IF NOT EXISTS broken BOOLEAN NOT NULL DEFAULT false;
+
+		CREATE TABLE IF NOT EXISTS `+TableBotHeartbeat+` (
+			id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+			guild_count INTEGER NOT NULL,
+			member_count BIGINT NOT NULL,
+			shard_count INTEGER NOT NULL,
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		);
+
+		CREATE TABLE IF NOT EXISTS `+TableStatusSnapshots+` (
+			id BIGSERIAL PRIMARY KEY,
+			checked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			database_up BOOLEAN NOT NULL,
+			discord_up BOOLEAN NOT NULL,
+			db_latency_ms INTEGER NOT NULL
+		);
 	`)
 
 	if err != nil {

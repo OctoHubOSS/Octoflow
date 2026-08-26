@@ -49,3 +49,23 @@ create table webhook_logs (
     webhook_id text not null references webhooks (id) ON UPDATE CASCADE ON DELETE CASCADE,
     entries text[] not null default '{}'
 );
+
+-- Singleton row the bot process upserts on a timer with live gateway stats.
+-- The webserver process never opens a gateway connection itself, so this is
+-- the only way it can know guild/member/shard counts or whether the bot is alive.
+CREATE TABLE bot_heartbeat (
+    id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    guild_count INTEGER NOT NULL,
+    member_count BIGINT NOT NULL,
+    shard_count INTEGER NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Periodic health snapshots taken by the webserver, used to render uptime history.
+CREATE TABLE status_snapshots (
+    id BIGSERIAL PRIMARY KEY,
+    checked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    database_up BOOLEAN NOT NULL,
+    discord_up BOOLEAN NOT NULL,
+    db_latency_ms INTEGER NOT NULL
+);

@@ -1,6 +1,6 @@
 module github.com/OctoHubOSS/Octoflow/webserver
 
-go 1.22
+go 1.25
 
 require (
 	github.com/PlexiOSS/Keel v1.0.1

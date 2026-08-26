@@ -161,7 +161,13 @@ async fn main() {
             .connect(&config::CONFIG.database_url)
             .await
             .expect("Could not initialize connection"),
-    };    
+    };
+
+    // The webserver process (Go) never opens a gateway connection, so it has no
+    // way to know guild/member/shard counts on its own. This bot process does
+    // have that via serenity's cache, so it upserts a heartbeat row on a timer
+    // that the webserver reads for /api/counts, /api/health, and the status page.
+    let heartbeat_pool = data.pool.clone();
 
     let framework = poise::Framework::new(
         poise::FrameworkOptions {
@@ -217,7 +223,46 @@ async fn main() {
         .await
         .expect("Error creating client");
 
+    tokio::spawn(heartbeat_task(client.cache.clone(), heartbeat_pool));
+
     if let Err(why) = client.start().await {
         error!("Client error: {:?}", why);
+    }
+}
+
+/// Upserts guild/member/shard counts into `bot_heartbeat` every minute. Runs forever;
+/// errors are logged and skipped rather than fatal, since a missed beat just means the
+/// webserver treats the bot as down for a bit until the next one lands.
+async fn heartbeat_task(cache: Arc<prelude::Cache>, pool: sqlx::PgPool) {
+    let mut interval = tokio::time::interval(Duration::from_secs(60));
+
+    loop {
+        interval.tick().await;
+
+        let guild_ids = cache.guilds();
+        let guild_count = guild_ids.len() as i32;
+        let shard_count = cache.shard_count().get() as i32;
+
+        let mut member_count: i64 = 0;
+        for guild_id in &guild_ids {
+            if let Some(guild) = cache.guild(*guild_id) {
+                member_count += guild.member_count as i64;
+            }
+        }
+
+        let result = sqlx::query(
+            "INSERT INTO bot_heartbeat (id, guild_count, member_count, shard_count, updated_at) \
+             VALUES (1, $1, $2, $3, NOW()) \
+             ON CONFLICT (id) DO UPDATE SET guild_count = $1, member_count = $2, shard_count = $3, updated_at = NOW()",
+        )
+        .bind(guild_count)
+        .bind(member_count)
+        .bind(shard_count)
+        .execute(&pool)
+        .await;
+
+        if let Err(e) = result {
+            error!("Failed to upsert bot heartbeat: {:?}", e);
+        }
     }
 }
