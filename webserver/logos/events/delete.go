@@ -1,8 +1,6 @@
 package events
 
 import (
-	"time"
-
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -28,7 +26,7 @@ func deleteFn(bytes []byte) (*discordgo.MessageSend, error) {
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Color:     colorRed,
-				Timestamp: time.Now().UTC().Format(time.RFC3339),
+				Timestamp: nowTimestamp(),
 				URL:       gh.Repo.HTMLURL,
 				Author:    gh.Sender.AuthorEmbed(),
 				Title:     "Removed " + gh.RefType + " from " + gh.Repo.FullName,

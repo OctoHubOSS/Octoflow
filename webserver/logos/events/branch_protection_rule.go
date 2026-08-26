@@ -1,8 +1,6 @@
 package events
 
 import (
-	"time"
-
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -178,7 +176,7 @@ func branchProtectionRuleFn(bytes []byte) (*discordgo.MessageSend, error) {
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Color:       color,
-				Timestamp:   time.Now().UTC().Format(time.RFC3339),
+				Timestamp:   nowTimestamp(),
 				URL:         gh.Repo.HTMLURL,
 				Title:       title,
 				Author:      gh.Sender.AuthorEmbed(),

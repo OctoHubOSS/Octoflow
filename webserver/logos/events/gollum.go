@@ -2,7 +2,6 @@ package events
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -41,7 +40,7 @@ func gollumFn(bytes []byte) (*discordgo.MessageSend, error) {
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Color:     colorGreen,
-				Timestamp: time.Now().UTC().Format(time.RFC3339),
+				Timestamp: nowTimestamp(),
 				URL:       gh.Repo.HTMLURL,
 				Author:    gh.Sender.AuthorEmbed(),
 				Title:     truncateText(fmt.Sprintf("Wiki updated on %s (%d page(s))", gh.Repo.FullName, len(gh.Pages)), 256),

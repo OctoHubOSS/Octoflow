@@ -66,9 +66,7 @@ func deploymentStatusFn(bytes []byte) (*discordgo.MessageSend, error) {
 		gh.DeploymentStatus.Description += "\n" + gh.Deployment.Description
 	}
 
-	if len(gh.DeploymentStatus.Description) > 996 {
-		gh.DeploymentStatus.Description = gh.DeploymentStatus.Description[:996] + "..."
-	}
+	gh.DeploymentStatus.Description = truncateText(gh.DeploymentStatus.Description, 996)
 
 	if gh.DeploymentStatus.EnvironmentURL == "" {
 		gh.DeploymentStatus.EnvironmentURL = "No URL available"

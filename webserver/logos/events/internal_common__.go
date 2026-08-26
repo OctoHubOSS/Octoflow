@@ -3,6 +3,7 @@ package events
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	jsoniter "github.com/json-iterator/go"
@@ -74,6 +75,13 @@ func (u User) AuthorEmbed() *discordgo.MessageEmbedAuthor {
 
 func (u User) Link() string {
 	return "[" + strings.ReplaceAll(u.Login, " ", "%20") + "](" + u.HTMLURL + ")"
+}
+
+// githubUserLink builds a markdown link to a GitHub user's profile from just
+// a username, for payload shapes (like a push event's commit authors and
+// pusher) that don't come back as a full User with its own html_url.
+func githubUserLink(username string) string {
+	return "[" + strings.ReplaceAll(username, " ", "%20") + "](https://github.com/" + strings.ReplaceAll(username, " ", "%20") + ")"
 }
 
 type Repository struct {
@@ -172,4 +180,10 @@ func truncateText(s string, max int) string {
 	}
 
 	return string(r[:max-1]) + "…"
+}
+
+// nowTimestamp is the embed timestamp used by every event -- centralized so
+// call sites can't accidentally omit it.
+func nowTimestamp() string {
+	return time.Now().UTC().Format(time.RFC3339)
 }

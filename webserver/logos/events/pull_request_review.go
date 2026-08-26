@@ -1,8 +1,6 @@
 package events
 
 import (
-	"time"
-
 	"strconv"
 	"strings"
 
@@ -31,11 +29,7 @@ func pullRequestReviewFn(bytes []byte) (*discordgo.MessageSend, error) {
 		return &discordgo.MessageSend{}, err
 	}
 
-	var body string = gh.Review.Body
-
-	if len(body) > 1000 {
-		body = body[:1000] + "..."
-	}
+	body := truncateText(gh.Review.Body, 1000)
 
 	if body == "" {
 		body = "No review comment left"
@@ -55,7 +49,7 @@ func pullRequestReviewFn(bytes []byte) (*discordgo.MessageSend, error) {
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Color:       color,
-				Timestamp:   time.Now().UTC().Format(time.RFC3339),
+				Timestamp:   nowTimestamp(),
 				URL:         gh.Review.HTMLURL,
 				Author:      gh.Sender.AuthorEmbed(),
 				Description: body,

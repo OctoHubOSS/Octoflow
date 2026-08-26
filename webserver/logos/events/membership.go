@@ -1,8 +1,6 @@
 package events
 
 import (
-	"time"
-
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -40,7 +38,7 @@ func membershipFn(bytes []byte) (*discordgo.MessageSend, error) {
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Color:     color,
-				Timestamp: time.Now().UTC().Format(time.RFC3339),
+				Timestamp: nowTimestamp(),
 				URL:       gh.Team.HTMLUrl,
 				Author:    gh.Sender.AuthorEmbed(),
 				Title:     "Team membership " + gh.Action + " in " + gh.Organization.Login,

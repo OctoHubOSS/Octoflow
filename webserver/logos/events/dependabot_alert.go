@@ -1,8 +1,6 @@
 package events
 
 import (
-	"time"
-
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -91,9 +89,7 @@ func dependabotAlertFn(bytes []byte) (*discordgo.MessageSend, error) {
 		details += "\n**Could be fixed by resolving:** " + gh.Alert.Dependency.Package.Name + " " + gh.Alert.SecurityAdvisory.GHSAID
 	}
 
-	if len(details) > 1020 {
-		details = details[:1020] + "..."
-	}
+	details = truncateText(details, 1020)
 
 	var summaryDet string
 
@@ -102,16 +98,10 @@ func dependabotAlertFn(bytes []byte) (*discordgo.MessageSend, error) {
 	}
 
 	if gh.Alert.SecurityAdvisory.Description != "" {
-		if len(gh.Alert.SecurityAdvisory.Description) > 996 {
-			summaryDet += "\n\n" + gh.Alert.SecurityAdvisory.Description[:996] + "..."
-		} else {
-			summaryDet += "\n\n" + gh.Alert.SecurityAdvisory.Description
-		}
+		summaryDet += "\n\n" + truncateText(gh.Alert.SecurityAdvisory.Description, 996)
 	}
 
-	if len(summaryDet) > 1020 {
-		summaryDet = summaryDet[:1020] + "..."
-	}
+	summaryDet = truncateText(summaryDet, 1020)
 
 	var vulns string
 
@@ -119,9 +109,7 @@ func dependabotAlertFn(bytes []byte) (*discordgo.MessageSend, error) {
 		vulns += "\n**Severity:** " + vuln.Severity + "\n**Vulnerable Version Range:** " + vuln.VulnerableVersionRange + "\n**First Patched Version:** " + vuln.FirstPatchedVersion.Identifier + "\n"
 	}
 
-	if len(vulns) > 1020 {
-		vulns = vulns[:1020] + "..."
-	}
+	vulns = truncateText(vulns, 1020)
 
 	var dismissed string
 
@@ -129,9 +117,7 @@ func dependabotAlertFn(bytes []byte) (*discordgo.MessageSend, error) {
 		dismissed += "\n**Dismissed Reason:** " + gh.Alert.DismissedReason
 	}
 
-	if len(dismissed) > 1020 {
-		dismissed += dismissed[:1020] + "..."
-	}
+	dismissed = truncateText(dismissed, 1020)
 
 	if gh.Alert.DismissedBy.Login != "" {
 		dismissed += "\n**Dismissed By:** " + gh.Alert.DismissedBy.Link()
@@ -145,7 +131,7 @@ func dependabotAlertFn(bytes []byte) (*discordgo.MessageSend, error) {
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Color:     color,
-				Timestamp: time.Now().UTC().Format(time.RFC3339),
+				Timestamp: nowTimestamp(),
 				URL:       gh.Alert.HTMLURL,
 				Title:     "Dependabot Alert on " + gh.Repo.FullName + " " + gh.Alert.State,
 				Fields: []*discordgo.MessageEmbedField{

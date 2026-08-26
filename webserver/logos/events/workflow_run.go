@@ -1,8 +1,6 @@
 package events
 
 import (
-	"time"
-
 	"fmt"
 
 	"github.com/bwmarrin/discordgo"
@@ -56,7 +54,7 @@ func workflowRunFn(bytes []byte) (*discordgo.MessageSend, error) {
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Color:     colorGreen,
-				Timestamp: time.Now().UTC().Format(time.RFC3339),
+				Timestamp: nowTimestamp(),
 				URL:       gh.Repo.HTMLURL,
 				Author:    gh.Sender.AuthorEmbed(),
 				Title:     "Workflow Run: " + gh.WorkflowRun.Name,

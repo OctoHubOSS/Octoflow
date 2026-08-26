@@ -1,8 +1,6 @@
 package events
 
 import (
-	"time"
-
 	"github.com/bwmarrin/discordgo"
 
 	"strconv"
@@ -116,7 +114,7 @@ func workflowJobFn(bytes []byte) (*discordgo.MessageSend, error) {
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Color:     colorGreen,
-				Timestamp: time.Now().UTC().Format(time.RFC3339),
+				Timestamp: nowTimestamp(),
 				URL:       gh.Repo.HTMLURL,
 				Author:    gh.Sender.AuthorEmbed(),
 				Title:     "Workflow Job: " + gh.WorkflowJob.Name,

@@ -1,8 +1,6 @@
 package events
 
 import (
-	"time"
-
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -43,7 +41,7 @@ func labelFn(bytes []byte) (*discordgo.MessageSend, error) {
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Color:     color,
-				Timestamp: time.Now().UTC().Format(time.RFC3339),
+				Timestamp: nowTimestamp(),
 				URL:       gh.Repo.HTMLURL,
 				Author:    gh.Sender.AuthorEmbed(),
 				Title:     "Label " + gh.Action + " on " + gh.Repo.FullName,

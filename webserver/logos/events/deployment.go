@@ -48,9 +48,7 @@ func deploymentFn(bytes []byte) (*discordgo.MessageSend, error) {
 		env = gh.Deployment.OriginalEnvironment + " => " + gh.Deployment.Environment
 	}
 
-	if len(gh.Deployment.Description) > 996 {
-		gh.Deployment.Description = gh.Deployment.Description[:996] + "..."
-	}
+	gh.Deployment.Description = truncateText(gh.Deployment.Description, 996)
 
 	return &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{

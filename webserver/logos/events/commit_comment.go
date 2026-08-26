@@ -1,8 +1,6 @@
 package events
 
 import (
-	"time"
-
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -28,11 +26,7 @@ func commitCommentFn(bytes []byte) (*discordgo.MessageSend, error) {
 		return &discordgo.MessageSend{}, err
 	}
 
-	var comment string = gh.Comment.Body
-
-	if len(gh.Comment.Body) > 1000 {
-		comment = gh.Comment.Body[:1000] + "..."
-	}
+	comment := truncateText(gh.Comment.Body, 1000)
 
 	if comment == "" {
 		comment = "No description available"
@@ -49,7 +43,7 @@ func commitCommentFn(bytes []byte) (*discordgo.MessageSend, error) {
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Color:       color,
-				Timestamp:   time.Now().UTC().Format(time.RFC3339),
+				Timestamp:   nowTimestamp(),
 				URL:         gh.Comment.HTMLURL,
 				Author:      gh.Sender.AuthorEmbed(),
 				Title:       "Comment on commit " + gh.Repo.FullName + " (" + gh.Comment.CommitID[:7] + ")",

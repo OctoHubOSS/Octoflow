@@ -1,8 +1,6 @@
 package events
 
 import (
-	"time"
-
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -35,11 +33,7 @@ func milestoneFn(bytes []byte) (*discordgo.MessageSend, error) {
 		color = colorGreen
 	}
 
-	description := gh.Milestone.Description
-
-	if len(description) > 1000 {
-		description = description[:1000] + "..."
-	}
+	description := truncateText(gh.Milestone.Description, 1000)
 
 	if description == "" {
 		description = "No description provided."
@@ -55,7 +49,7 @@ func milestoneFn(bytes []byte) (*discordgo.MessageSend, error) {
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Color:       color,
-				Timestamp:   time.Now().UTC().Format(time.RFC3339),
+				Timestamp:   nowTimestamp(),
 				URL:         gh.Milestone.HTMLURL,
 				Author:      gh.Sender.AuthorEmbed(),
 				Description: description,

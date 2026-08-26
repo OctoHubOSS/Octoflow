@@ -1,8 +1,6 @@
 package events
 
 import (
-	"time"
-
 	"fmt"
 
 	"github.com/bwmarrin/discordgo"
@@ -29,7 +27,7 @@ func forkFn(bytes []byte) (*discordgo.MessageSend, error) {
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Color:     colorGreen,
-				Timestamp: time.Now().UTC().Format(time.RFC3339),
+				Timestamp: nowTimestamp(),
 				URL:       gh.Forkee.HTMLURL,
 				Author:    gh.Sender.AuthorEmbed(),
 				Title:     "New fork: " + gh.Forkee.FullName,

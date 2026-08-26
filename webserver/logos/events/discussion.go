@@ -59,11 +59,11 @@ func discussionFn(bytes []byte) (*discordgo.MessageSend, error) {
 		}
 
 		if len(gh.Discussion.AnswerRespBody) > 3000 {
-			gh.Discussion.AnswerRespBody = gh.Discussion.AnswerRespBody[:3000] + "... [View Discussion](" + gh.Discussion.DiscussionURL + ")"
+			gh.Discussion.AnswerRespBody = truncateText(gh.Discussion.AnswerRespBody, 3000) + " [View Discussion](" + gh.Discussion.DiscussionURL + ")"
 		}
 
 		if len(gh.Discussion.Title) > 190 {
-			gh.Discussion.Title = gh.Discussion.Title[:190] + "... [View Discussion](" + gh.Discussion.DiscussionURL + ")"
+			gh.Discussion.Title = truncateText(gh.Discussion.Title, 190) + " [View Discussion](" + gh.Discussion.DiscussionURL + ")"
 		}
 
 		return &discordgo.MessageSend{
@@ -120,7 +120,7 @@ func discussionFn(bytes []byte) (*discordgo.MessageSend, error) {
 	case "category_changed":
 
 		if len(gh.Discussion.Title) > 190 {
-			gh.Discussion.Title = gh.Discussion.Title[:190] + "... [View Discussion](" + gh.Discussion.DiscussionURL + ")"
+			gh.Discussion.Title = truncateText(gh.Discussion.Title, 190) + " [View Discussion](" + gh.Discussion.DiscussionURL + ")"
 		}
 
 		return &discordgo.MessageSend{
@@ -156,9 +156,7 @@ func discussionFn(bytes []byte) (*discordgo.MessageSend, error) {
 	// Someone closed the discussion and comments are no longer allowed
 	case "closed":
 
-		if len(gh.Discussion.Title) > 190 {
-			gh.Discussion.Title = gh.Discussion.Title[:190] + "..."
-		}
+		gh.Discussion.Title = truncateText(gh.Discussion.Title, 190)
 
 		return &discordgo.MessageSend{
 			Embeds: []*discordgo.MessageEmbed{
@@ -199,7 +197,7 @@ func discussionFn(bytes []byte) (*discordgo.MessageSend, error) {
 	case "reopened":
 
 		if len(gh.Discussion.Title) > 190 {
-			gh.Discussion.Title = gh.Discussion.Title[:190] + "... [View Discussion](" + gh.Discussion.DiscussionURL + ")"
+			gh.Discussion.Title = truncateText(gh.Discussion.Title, 190) + " [View Discussion](" + gh.Discussion.DiscussionURL + ")"
 		}
 
 		return &discordgo.MessageSend{
@@ -241,11 +239,11 @@ func discussionFn(bytes []byte) (*discordgo.MessageSend, error) {
 	case "created":
 
 		if len(gh.Discussion.Title) > 190 {
-			gh.Discussion.Title = gh.Discussion.Title[:190] + "... [View Discussion](" + gh.Discussion.DiscussionURL + ")"
+			gh.Discussion.Title = truncateText(gh.Discussion.Title, 190) + " [View Discussion](" + gh.Discussion.DiscussionURL + ")"
 		}
 
 		if len(gh.Discussion.AnswerRespBody) > 3000 {
-			gh.Discussion.AnswerRespBody = gh.Discussion.AnswerRespBody[:3000] + "... [View Discussion](" + gh.Discussion.DiscussionURL + ")"
+			gh.Discussion.AnswerRespBody = truncateText(gh.Discussion.AnswerRespBody, 3000) + " [View Discussion](" + gh.Discussion.DiscussionURL + ")"
 		}
 
 		return &discordgo.MessageSend{
@@ -312,11 +310,11 @@ func discussionFn(bytes []byte) (*discordgo.MessageSend, error) {
 	case "edited":
 
 		if len(gh.Discussion.AnswerRespBody) > 3000 {
-			gh.Discussion.AnswerRespBody = gh.Discussion.AnswerRespBody[:3000] + "... [View Discussion](" + gh.Discussion.DiscussionURL + ")"
+			gh.Discussion.AnswerRespBody = truncateText(gh.Discussion.AnswerRespBody, 3000) + " [View Discussion](" + gh.Discussion.DiscussionURL + ")"
 		}
 
 		if len(gh.Discussion.Title) > 190 {
-			gh.Discussion.Title = gh.Discussion.Title[:190] + "... [View Discussion](" + gh.Discussion.DiscussionURL + ")"
+			gh.Discussion.Title = truncateText(gh.Discussion.Title, 190) + " [View Discussion](" + gh.Discussion.DiscussionURL + ")"
 		}
 
 		return &discordgo.MessageSend{
@@ -356,7 +354,7 @@ func discussionFn(bytes []byte) (*discordgo.MessageSend, error) {
 		}
 
 		if len(gh.Discussion.Title) > 190 {
-			gh.Discussion.Title = gh.Discussion.Title[:190] + "... [View Discussion](" + gh.Discussion.DiscussionURL + ")"
+			gh.Discussion.Title = truncateText(gh.Discussion.Title, 190) + " [View Discussion](" + gh.Discussion.DiscussionURL + ")"
 		}
 
 		return &discordgo.MessageSend{
@@ -416,13 +414,13 @@ func discussionFn(bytes []byte) (*discordgo.MessageSend, error) {
 		if gh.Discussion.ActiveLockReason == "" {
 			lockedReason = "No reason provided"
 		} else if len(gh.Discussion.ActiveLockReason) > 999 {
-			lockedReason = gh.Discussion.AnswerRespBody[:999] + "... [View Discussion](" + gh.Discussion.DiscussionURL + ")"
+			lockedReason = truncateText(gh.Discussion.ActiveLockReason, 999) + " [View Discussion](" + gh.Discussion.DiscussionURL + ")"
 		} else {
 			lockedReason = gh.Discussion.ActiveLockReason
 		}
 
 		if len(gh.Discussion.Title) > 190 {
-			gh.Discussion.Title = gh.Discussion.Title[:190] + "... [View Discussion](" + gh.Discussion.DiscussionURL + ")"
+			gh.Discussion.Title = truncateText(gh.Discussion.Title, 190) + " [View Discussion](" + gh.Discussion.DiscussionURL + ")"
 		}
 
 		return &discordgo.MessageSend{
@@ -464,7 +462,7 @@ func discussionFn(bytes []byte) (*discordgo.MessageSend, error) {
 	case "unlocked":
 
 		if len(gh.Discussion.Title) > 190 {
-			gh.Discussion.Title = gh.Discussion.Title[:190] + "... [View Discussion](" + gh.Discussion.DiscussionURL + ")"
+			gh.Discussion.Title = truncateText(gh.Discussion.Title, 190) + " [View Discussion](" + gh.Discussion.DiscussionURL + ")"
 		}
 
 		return &discordgo.MessageSend{
@@ -501,11 +499,11 @@ func discussionFn(bytes []byte) (*discordgo.MessageSend, error) {
 	case "pinned":
 
 		if len(gh.Discussion.AnswerRespBody) > 3000 {
-			gh.Discussion.AnswerRespBody = gh.Discussion.AnswerRespBody[:3000] + "... [View Discussion](" + gh.Discussion.DiscussionURL + ")"
+			gh.Discussion.AnswerRespBody = truncateText(gh.Discussion.AnswerRespBody, 3000) + " [View Discussion](" + gh.Discussion.DiscussionURL + ")"
 		}
 
 		if len(gh.Discussion.Title) > 190 {
-			gh.Discussion.Title = gh.Discussion.Title[:190] + "... [View Discussion](" + gh.Discussion.DiscussionURL + ")"
+			gh.Discussion.Title = truncateText(gh.Discussion.Title, 190) + " [View Discussion](" + gh.Discussion.DiscussionURL + ")"
 		}
 
 		return &discordgo.MessageSend{
@@ -547,11 +545,11 @@ func discussionFn(bytes []byte) (*discordgo.MessageSend, error) {
 	case "unpinned":
 
 		if len(gh.Discussion.AnswerRespBody) > 3000 {
-			gh.Discussion.AnswerRespBody = gh.Discussion.AnswerRespBody[:3000] + "... [View Discussion](" + gh.Discussion.DiscussionURL + ")"
+			gh.Discussion.AnswerRespBody = truncateText(gh.Discussion.AnswerRespBody, 3000) + " [View Discussion](" + gh.Discussion.DiscussionURL + ")"
 		}
 
 		if len(gh.Discussion.Title) > 190 {
-			gh.Discussion.Title = gh.Discussion.Title[:190] + "... [View Discussion](" + gh.Discussion.DiscussionURL + ")"
+			gh.Discussion.Title = truncateText(gh.Discussion.Title, 190) + " [View Discussion](" + gh.Discussion.DiscussionURL + ")"
 		}
 
 		return &discordgo.MessageSend{
@@ -593,7 +591,7 @@ func discussionFn(bytes []byte) (*discordgo.MessageSend, error) {
 	default:
 
 		if len(gh.Discussion.Title) > 190 {
-			gh.Discussion.Title = gh.Discussion.Title[:190] + "... [View Discussion](" + gh.Discussion.DiscussionURL + ")"
+			gh.Discussion.Title = truncateText(gh.Discussion.Title, 190) + " [View Discussion](" + gh.Discussion.DiscussionURL + ")"
 		}
 
 		return &discordgo.MessageSend{

@@ -1,10 +1,7 @@
 package events
 
 import (
-	"time"
-
 	"fmt"
-	"strings"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -43,23 +40,17 @@ func pushFn(bytes []byte) (*discordgo.MessageSend, error) {
 
 	var commitList string
 	for _, commit := range gh.Commits {
-		fmt.Println(commit.Author)
-
 		// If the username is empty, use the name instead
 		if commit.Author.Username == "" {
 			commit.Author.Username = commit.Author.Name
 		}
 
-		if len(commit.Message) > 100 {
-			commit.Message = commit.Message[:100] + "..."
-		}
+		commit.Message = truncateText(commit.Message, 100)
 
-		commitList += fmt.Sprintf("%s [``%s``](%s) | [%s](%s)\n", commit.Message, commit.ID[:7], commit.URL, commit.Author.Username, strings.ReplaceAll("https://github.com/"+commit.Author.Username, " ", "%20"))
+		commitList += fmt.Sprintf("%s [``%s``](%s) | %s\n", commit.Message, commit.ID[:7], commit.URL, githubUserLink(commit.Author.Username))
 	}
 
-	if len(commitList) > 1024 {
-		commitList = commitList[:1024] + "..."
-	}
+	commitList = truncateText(commitList, 1024)
 
 	if commitList == "" {
 		commitList = "No commits?"
@@ -68,14 +59,14 @@ func pushFn(bytes []byte) (*discordgo.MessageSend, error) {
 	branchInfo := "**Ref:** " + gh.Ref
 
 	if gh.BaseRef != "" {
-		branchInfo = "\n" + "**Base Ref:** " + gh.BaseRef
+		branchInfo += "\n**Base Ref:** " + gh.BaseRef
 	}
 
 	return &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Color:     colorGreen,
-				Timestamp: time.Now().UTC().Format(time.RFC3339),
+				Timestamp: nowTimestamp(),
 				URL:       gh.Repo.HTMLURL,
 				Author:    gh.Sender.AuthorEmbed(),
 				Title:     "Push on " + gh.Repo.FullName,
@@ -95,7 +86,7 @@ func pushFn(bytes []byte) (*discordgo.MessageSend, error) {
 					},
 					{
 						Name:   "Pusher",
-						Value:  fmt.Sprintf("[%s](%s)", gh.Pusher.Name, "https://github.com/"+gh.Pusher.Name),
+						Value:  githubUserLink(gh.Pusher.Name),
 						Inline: true,
 					},
 				},

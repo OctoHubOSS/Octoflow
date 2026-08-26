@@ -1,8 +1,6 @@
 package events
 
 import (
-	"time"
-
 	"fmt"
 
 	"github.com/bwmarrin/discordgo"
@@ -25,10 +23,7 @@ func pullRequestFn(bytes []byte) (*discordgo.MessageSend, error) {
 		return &discordgo.MessageSend{}, err
 	}
 
-	var body string = gh.PullRequest.Body
-	if len(gh.PullRequest.Body) > 1000 {
-		body = gh.PullRequest.Body[:1000]
-	}
+	body := truncateText(gh.PullRequest.Body, 1000)
 
 	if body == "" {
 		body = "No description available"
@@ -45,7 +40,7 @@ func pullRequestFn(bytes []byte) (*discordgo.MessageSend, error) {
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Color:     color,
-				Timestamp: time.Now().UTC().Format(time.RFC3339),
+				Timestamp: nowTimestamp(),
 				URL:       gh.PullRequest.HTMLURL,
 				Author:    gh.Sender.AuthorEmbed(),
 				Title:     fmt.Sprintf("Pull Request %s on %s (#%d)", gh.Action, gh.Repo.FullName, gh.PullRequest.Number),

@@ -1,8 +1,6 @@
 package events
 
 import (
-	"time"
-
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -25,7 +23,7 @@ func pingFn(bytes []byte) (*discordgo.MessageSend, error) {
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Color:       colorGreen,
-				Timestamp:   time.Now().UTC().Format(time.RFC3339),
+				Timestamp:   nowTimestamp(),
 				URL:         gh.Repo.HTMLURL,
 				Author:      gh.Sender.AuthorEmbed(),
 				Title:       "Webhook connected to " + gh.Repo.FullName,

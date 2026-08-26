@@ -1,8 +1,6 @@
 package events
 
 import (
-	"time"
-
 	"github.com/bwmarrin/discordgo"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -37,10 +35,7 @@ func releaseFn(bytes []byte) (*discordgo.MessageSend, error) {
 		color = colorRed
 	}
 
-	var body string = gh.Release.Body
-	if len(gh.Release.Body) > 996 {
-		body = gh.Release.Body[:996] + "..."
-	}
+	body := truncateText(gh.Release.Body, 996)
 
 	if body == "" {
 		body = "No description available"
@@ -50,7 +45,7 @@ func releaseFn(bytes []byte) (*discordgo.MessageSend, error) {
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Color:       color,
-				Timestamp:   time.Now().UTC().Format(time.RFC3339),
+				Timestamp:   nowTimestamp(),
 				URL:         gh.Repo.HTMLURL,
 				Title:       title,
 				Author:      gh.Sender.AuthorEmbed(),

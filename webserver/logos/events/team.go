@@ -1,8 +1,6 @@
 package events
 
 import (
-	"time"
-
 	"fmt"
 	"strings"
 
@@ -47,31 +45,19 @@ func teamFn(bytes []byte) (*discordgo.MessageSend, error) {
 		teamNameSlugged += " | " + gh.Team.Slug
 	}
 
-	var description = gh.Team.Description
-
-	if len(description) > 1000 {
-		description = description[:1000] + "..."
-	}
+	description := truncateText(gh.Team.Description, 1000)
 
 	if description == "" {
 		description = "No description provided."
 	}
 
-	var permission = gh.Team.Permission
-
-	if len(permission) > 1000 {
-		permission = permission[:1000] + "..."
-	}
+	permission := truncateText(gh.Team.Permission, 1000)
 
 	if permission == "" {
 		permission = "No permissions provided."
 	}
 
-	var privacy = gh.Team.Privacy
-
-	if len(privacy) > 1000 {
-		privacy = privacy[:1000] + "..."
-	}
+	privacy := truncateText(gh.Team.Privacy, 1000)
 
 	if privacy == "" {
 		privacy = "No privacy settings set."
@@ -81,7 +67,7 @@ func teamFn(bytes []byte) (*discordgo.MessageSend, error) {
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Color:     color,
-				Timestamp: time.Now().UTC().Format(time.RFC3339),
+				Timestamp: nowTimestamp(),
 				URL:       gh.Repo.HTMLURL,
 				Author:    gh.Sender.AuthorEmbed(),
 				Title:     "Team " + strings.Replace(gh.Action, "_", " ", -1),

@@ -1,8 +1,6 @@
 package events
 
 import (
-	"time"
-
 	"fmt"
 
 	"github.com/bwmarrin/discordgo"
@@ -25,10 +23,7 @@ func issuesFn(bytes []byte) (*discordgo.MessageSend, error) {
 		return &discordgo.MessageSend{}, err
 	}
 
-	var body string = gh.Issue.Body
-	if len(gh.Issue.Body) > 996 {
-		body = gh.Issue.Body[:996] + "..."
-	}
+	body := truncateText(gh.Issue.Body, 996)
 
 	if body == "" {
 		body = "No description available"
@@ -45,7 +40,7 @@ func issuesFn(bytes []byte) (*discordgo.MessageSend, error) {
 		Embeds: []*discordgo.MessageEmbed{
 			{
 				Color:       color,
-				Timestamp:   time.Now().UTC().Format(time.RFC3339),
+				Timestamp:   nowTimestamp(),
 				URL:         gh.Issue.HTMLURL,
 				Author:      gh.Sender.AuthorEmbed(),
 				Description: body,
