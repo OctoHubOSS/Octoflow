@@ -5,6 +5,7 @@
 bot/bot
 bot/bot.new
 webserver/webserver
+webserver/webserver.exe
 **/.DS_Store
 **/*config.yaml
 **/*-config.yaml
