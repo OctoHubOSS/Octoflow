@@ -1,4 +1,5 @@
-// Ontos (Xenoblade Chronicles 2), the core component that recieves requests passing it down to Pneuma/Logos
+//  Copyright (C) 2026 NodeByte LTD
+
 package ontos
 
 import (
@@ -8,7 +9,6 @@ import (
 	"github.com/OctoHubOSS/Octoflow/webserver/logos/events"
 )
 
-// Precomputed values
 var eventList []string
 
 func init() {

@@ -1,4 +1,5 @@
-// Pneuma (Xenoblade Chronicles 2), the core component that actually handles events
+//  Copyright (C) 2026 NodeByte LTD
+
 package pneuma
 
 import (
@@ -111,6 +112,34 @@ func HandleEvents(
 	webhookId string,
 	guildId string,
 ) {
+	// Push events on a webhook with batch_events on are diverted to the
+	// batcher instead of being dispatched immediately - see batcher.go. Every
+	// other event type (and push on webhooks without it enabled) is
+	// unaffected.
+	if header == "push" {
+		var batchEvents bool
+		err := state.Pool.QueryRow(state.Context, "SELECT batch_events FROM "+state.TableWebhooks+" WHERE id = $1", webhookId).Scan(&batchEvents)
+		if err == nil && batchEvents {
+			enqueueForBatching(webhookId, repoId, guildId, logId, bodyBytes)
+			return
+		}
+	}
+
+	dispatchEvent(bodyBytes, rw, repoId, logId, header, webhookId, guildId)
+}
+
+// dispatchEvent does the actual work: resolve channels, render the embed,
+// record analytics, and send - either called directly by HandleEvents, or
+// by the batcher once a batch window flushes.
+func dispatchEvent(
+	bodyBytes []byte,
+	rw *events.RepoWrapper,
+	repoId string,
+	logId string,
+	header string,
+	webhookId string,
+	guildId string,
+) {
 	l := state.MapMutex.Lock(webhookId)
 	defer l.Unlock()
 
@@ -135,6 +164,18 @@ func HandleEvents(
 		state.Logger.Warn("ACL Fail", zap.String("repoName", rw.Repo.FullName), zap.String("webhookID", webhookId), zap.String("event", header), zap.String("reason", modres.ACLFail), zap.String("logId", logId))
 		return
 	}
+
+	// Fire-and-forget: the event has cleared ACL checks, so it's going to be
+	// delivered somewhere. Record it for dashboard analytics regardless of
+	// per-channel send outcome below.
+	go func() {
+		if _, err := state.Pool.Exec(state.Context,
+			"INSERT INTO "+state.TableEventMetrics+" (webhook_id, repo_id, event_type) VALUES ($1, $2, $3)",
+			webhookId, repoId, header,
+		); err != nil {
+			state.Logger.Warn("Could not record event metric", zap.Error(err), zap.String("webhookID", webhookId), zap.String("event", header))
+		}
+	}()
 
 	var channelIds []string
 
@@ -215,9 +256,29 @@ func HandleEvents(
 		messageSend.Embeds[i] = applyEmbedLimits(embed)
 	}
 
+	// Thread-per-PR/issue mode only applies to a repo's own normal channel
+	// routing, not an event-modifier redirect - a redirect target isn't "the
+	// repo's channel" in the sense threading assumes.
+	var threadKey events.ThreadKey
+	var hasThreadKey bool
+	if modres.ChannelOverride == "" {
+		threadKey, hasThreadKey = resolveThreadKey(repoId, header, bodyBytes)
+	}
+
 	for _, channelId := range channelIds {
-		updateLogEntries(logId, webhookId, guildId, "Sending event to channel: channelId="+channelId)
-		_, err := state.Discord.ChannelMessageSendComplex(channelId, messageSend)
+		target := channelId
+		createThreadAfterSend := false
+
+		if hasThreadKey {
+			if existing, ok := lookupIssueThread(repoId, threadKey); ok {
+				target = existing
+			} else if threadKey.IsThreadOpeningEvent(header) {
+				createThreadAfterSend = true
+			}
+		}
+
+		updateLogEntries(logId, webhookId, guildId, "Sending event to channel: channelId="+target)
+		sentMsg, err := state.Discord.ChannelMessageSendComplex(target, messageSend)
 
 		if err != nil {
 			state.Discord.ChannelMessageSendComplex(channelId, &discordgo.MessageSend{
@@ -225,6 +286,11 @@ func HandleEvents(
 			})
 
 			updateLogEntries(logId, "Could not send event "+header+" to channel: channelId="+channelId, "err="+err.Error())
+			continue
+		}
+
+		if createThreadAfterSend {
+			createIssueThread(logId, webhookId, guildId, repoId, target, sentMsg.ID, threadKey)
 		}
 	}
 }

@@ -1,3 +1,5 @@
+//  Copyright (C) 2026 NodeByte LTD
+
 package mapofmu
 
 import (
@@ -20,8 +22,6 @@ func TestM(t *testing.T) {
 	iCount := 10000
 	out := make(chan string, iCount*2)
 
-	// run a bunch of concurrent requests for various keys,
-	// the idea is to have a lot of lock contention
 	var wg sync.WaitGroup
 	wg.Add(iCount)
 	for i := 0; i < iCount; i++ {
@@ -29,24 +29,21 @@ func TestM(t *testing.T) {
 			defer wg.Done()
 			key := strconv.Itoa(rn)
 
-			// you can prove the test works by commenting the locking out and seeing it fail
 			l := m.Lock(key)
 			defer l.Unlock()
 
 			out <- key + " A"
-			time.Sleep(time.Microsecond) // make 'em wait a mo'
+			time.Sleep(time.Microsecond)
 			out <- key + " B"
 		}(r.Intn(keyCount))
 	}
 	wg.Wait()
 	close(out)
 
-	// verify the map is empty now
 	if l := len(m.ma); l != 0 {
 		t.Errorf("unexpected map length at test end: %v", l)
 	}
 
-	// confirm that the output always produced the correct sequence
 	outLists := make([][]string, keyCount)
 	for s := range out {
 		sParts := strings.Fields(s)
@@ -57,7 +54,7 @@ func TestM(t *testing.T) {
 		outLists[kn] = append(outLists[kn], sParts[1])
 	}
 	for kn := 0; kn < keyCount; kn++ {
-		l := outLists[kn] // list of output for this particular key
+		l := outLists[kn]
 		for i := 0; i < len(l); i += 2 {
 			if l[i] != "A" || l[i+1] != "B" {
 				t.Errorf("For key=%v and i=%v got unexpected values %v and %v", kn, i, l[i], l[i+1])
@@ -77,7 +74,6 @@ func BenchmarkM(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		// run uncontended lock/unlock - should be quite fast
 		m.Lock(i).Unlock()
 	}
 

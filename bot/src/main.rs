@@ -1,3 +1,5 @@
+//  Copyright (C) 2026 NodeByte LTD
+
 use std::time::Duration;
 
 use log::{error, info};

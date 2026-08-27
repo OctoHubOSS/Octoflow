@@ -1,3 +1,5 @@
+//  Copyright (C) 2026 NodeByte LTD
+
 package main
 
 import (
@@ -39,6 +41,7 @@ func main() {
 
 		r.Get("/guilds/{guildId}", ontos.ApiDashboardGuild)
 		r.Get("/guilds/{guildId}/channels", ontos.ApiDashboardChannels)
+		r.Get("/guilds/{guildId}/analytics", ontos.ApiDashboardAnalytics)
 		r.Post("/guilds/{guildId}/webhooks", ontos.ApiDashboardCreateWebhook)
 
 		r.Patch("/webhooks/{id}", ontos.ApiDashboardUpdateWebhook)
@@ -52,6 +55,17 @@ func main() {
 
 		r.Patch("/modifiers/{id}", ontos.ApiDashboardUpdateModifier)
 		r.Delete("/modifiers/{id}", ontos.ApiDashboardDeleteModifier)
+	})
+
+	r.Route("/api/admin", func(r chi.Router) {
+		r.Use(ontos.DashboardAuth, ontos.AdminAuth)
+
+		r.Get("/whoami", ontos.ApiAdminWhoAmI)
+		r.Get("/stats", ontos.ApiAdminStats)
+		r.Get("/guilds", ontos.ApiAdminGuilds)
+		r.Post("/guilds/{guildId}/ban", ontos.ApiAdminBanGuild)
+		r.Get("/logs", ontos.ApiAdminLogs)
+		r.Get("/audit-log", ontos.ApiAdminAuditLog)
 	})
 
 	http.ListenAndServe(state.Config.Port, r)

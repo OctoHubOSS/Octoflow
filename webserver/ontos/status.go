@@ -1,3 +1,5 @@
+//  Copyright (C) 2026 NodeByte LTD
+
 package ontos
 
 import (
@@ -9,8 +11,6 @@ import (
 	"github.com/OctoHubOSS/Octoflow/webserver/state"
 )
 
-// How stale the bot's heartbeat row can be before we consider the gateway connection down.
-// The bot upserts this row roughly once a minute, so three missed beats is a safe margin.
 const heartbeatStaleAfter = 3 * time.Minute
 
 type healthResponse struct {
@@ -22,8 +22,6 @@ type healthResponse struct {
 	CheckedAt   time.Time `json:"checked_at"`
 }
 
-// ApiHealth reports live status: whether the database is reachable from this process,
-// and whether the bot process's gateway heartbeat is recent enough to be considered up.
 func ApiHealth(w http.ResponseWriter, r *http.Request) {
 	resp := healthResponse{CheckedAt: time.Now().UTC()}
 
@@ -45,10 +43,6 @@ func ApiHealth(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
-// ApiStats is the legacy comma-separated counts endpoint. It used to read guild/user/shard
-// counts off the local discordgo session's gateway cache, but this process never opens a
-// gateway connection (the bot's Rust process does), so that cache was always empty. It now
-// reads the same bot_heartbeat row that ApiHealth uses.
 func ApiStats(w http.ResponseWriter, r *http.Request) {
 	var guildCount, shardCount int
 	var memberCount int64
@@ -73,8 +67,6 @@ type dayUptime struct {
 	Checks        int     `json:"checks"`
 }
 
-// ApiStatusHistory returns per-day uptime percentage and average DB latency, computed from
-// status_snapshots. Accepts ?days=N (default 30, max 90).
 func ApiStatusHistory(w http.ResponseWriter, r *http.Request) {
 	days := 30
 

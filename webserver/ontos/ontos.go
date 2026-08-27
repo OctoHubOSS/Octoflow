@@ -1,5 +1,5 @@
-// Ontos (Xenoblade Chronicles 2), the core component that recieves requests passing it down to
-// Pneuma/Logos
+//  Copyright (C) 2026 NodeByte LTD
+
 package ontos
 
 import (
@@ -31,7 +31,6 @@ func formatBool(b bool) string {
 }
 
 func GetWebhookRoute(w http.ResponseWriter, r *http.Request) {
-	// Find the webhook in the database
 	id := r.URL.Query().Get("id")
 
 	if id == "" {
@@ -55,7 +54,6 @@ func GetWebhookRoute(w http.ResponseWriter, r *http.Request) {
 	respStr.WriteString("Broken: " + formatBool(broken) + "\n")
 	respStr.WriteString("Comment: " + comment + "\n\n")
 
-	// Get all event modifiers on this webhook
 	modifiers, err := eventmodifiers.GetEventModifiers(id, "")
 
 	if err != nil {
@@ -150,7 +148,7 @@ func HandleWebhookRoute(w http.ResponseWriter, r *http.Request) {
 
 	if broken {
 		w.WriteHeader(500)
-		w.Write([]byte("This webhook is marked as broken!"))	
+		w.Write([]byte("This webhook is marked as broken!"))
 	}
 
 	var guildId string
@@ -200,7 +198,6 @@ func HandleWebhookRoute(w http.ResponseWriter, r *http.Request) {
 
 	var header = r.Header.Get("X-GitHub-Event")
 
-	// Get repo_name from database
 	var repoName string
 	var repoID string
 	err = state.Pool.QueryRow(state.Context, "SELECT id, repo_name FROM "+state.TableRepos+" WHERE repo_name = $1 AND webhook_id = $2", strings.ToLower(rw.Repo.FullName), id).Scan(&repoID, &repoName)

@@ -1,10 +1,7 @@
+//  Copyright (C) 2026 NodeByte LTD
+
 package eventmodifiers
 
-// From https://golangbyexample.com/wildcard-matching-golang/
-//
-// * -> zero or more characters
-//
-// ? -> one character
 func isMatch(p string, s string) bool {
 	runeInput := []rune(s)
 	runePattern := []rune(p)

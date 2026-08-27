@@ -9,9 +9,12 @@ name: External Status Check
 
 on:
   schedule:
-    # Every 5 minutes. GitHub doesn't guarantee exact cron timing under load -
-    # fine for a status page, not a paging system.
-    - cron: "*/5 * * * *"
+    # Every 5 minutes, offset to :02/:07/:12... instead of :00/:05/:10... -
+    # GitHub explicitly documents that scheduled workflows are most likely to
+    # be delayed or dropped right at the top of the hour and on round-number
+    # boundaries, which */5 lands on every single time. Fine for a status
+    # page either way, not a paging system.
+    - cron: "2-59/5 * * * *"
   workflow_dispatch: {}
 
 permissions:

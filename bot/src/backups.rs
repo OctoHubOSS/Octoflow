@@ -1,3 +1,5 @@
+//  Copyright (C) 2026 NodeByte LTD
+
 use poise::{
     serenity_prelude::{Attachment, CreateAttachment},
     CreateReply,

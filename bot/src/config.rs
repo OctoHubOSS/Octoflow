@@ -1,3 +1,5 @@
+//  Copyright (C) 2026 NodeByte LTD
+
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::{fs::File, io::Write};

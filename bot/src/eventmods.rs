@@ -1,3 +1,5 @@
+//  Copyright (C) 2026 NodeByte LTD
+
 use poise::serenity_prelude::ChannelId;
 use poise::CreateReply;
 use rand::distributions::{Alphanumeric, DistString};

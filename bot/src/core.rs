@@ -1,3 +1,5 @@
+//  Copyright (C) 2026 NodeByte LTD
+
 use log::error;
 use poise::{serenity_prelude::{CreateMessage, ChannelId, CreateEmbedFooter}, CreateReply};
 use rand::distributions::{Alphanumeric, DistString};
@@ -208,6 +210,7 @@ pub async fn edithook(
     comment: Option<String>,
     #[description = "Is the webhook broken?"] broken: Option<bool>,
     #[description = "The new secret for the webhook"] webhook_secret: Option<String>,
+    #[description = "Collapse rapid consecutive push events into one summary embed"] batch_events: Option<bool>,
 ) -> Result<(), Error> {
     let data = ctx.data();
 
@@ -273,6 +276,18 @@ pub async fn edithook(
         )
         .execute(&mut *tx)
         .await?;
+    }
+
+    if let Some(batch_events) = batch_events {
+        // Plain (not compile-time-checked) query: batch_events is a brand-new
+        // column not yet in the .sqlx offline cache, and there's no live DB
+        // handy to regenerate it against. Same runtime behavior either way.
+        sqlx::query("UPDATE webhooks SET batch_events = $1 WHERE id = $2 AND guild_id = $3")
+            .bind(batch_events)
+            .bind(&id)
+            .bind(ctx.guild_id().unwrap().to_string())
+            .execute(&mut *tx)
+            .await?;
     }
 
     sqlx::query!(
@@ -541,6 +556,7 @@ pub async fn editrepo(
     #[description = "The repo ID"] id: String,
     #[description = "The new repo owner/name (e.g. octocat/Hello-World)"] repo_name: Option<String>,
     #[description = "The new channel to send to"] channel: Option<ChannelId>,
+    #[description = "Post PR/issue activity into a thread per number instead of the flat channel"] use_threads: Option<bool>,
 ) -> Result<(), Error> {
     let data = ctx.data();
 
@@ -580,6 +596,17 @@ pub async fn editrepo(
         )
         .execute(&mut *tx)
         .await?;
+    }
+
+    if let Some(use_threads) = use_threads {
+        // Same as batch_events above: use_threads is new, not in the .sqlx
+        // offline cache yet, no live DB to regenerate it against right now.
+        sqlx::query("UPDATE repos SET use_threads = $1 WHERE id = $2 AND guild_id = $3")
+            .bind(use_threads)
+            .bind(&id)
+            .bind(ctx.guild_id().unwrap().to_string())
+            .execute(&mut *tx)
+            .await?;
     }
 
     sqlx::query!(

@@ -3,23 +3,14 @@ use std::time::Duration;
 
 use futures_util::StreamExt;
 use poise::serenity_prelude::{
-    ButtonStyle, ComponentInteractionDataKind, CreateActionRow, CreateButton, CreateEmbed,
-    CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, EditInteractionResponse,
+    ButtonStyle, ComponentInteractionDataKind, CreateActionRow, CreateButton, CreateSelectMenu,
+    CreateSelectMenuKind, CreateSelectMenuOption, EditInteractionResponse,
 };
 use poise::CreateReply;
 
 use crate::embeds;
 use crate::Context;
 use crate::Error;
-
-fn quick_links_embed() -> CreateEmbed<'static> {
-    embeds::base()
-        .title("Quick links")
-        .field("Documentation", format!("[octoflow.ca/docs]({})", embeds::DOCS_URL), true)
-        .field("Status", format!("[octoflow.ca/status]({})", embeds::STATUS_URL), true)
-        .field("Dashboard", format!("[octoflow.ca/dashboard]({})", embeds::DASHBOARD_URL), true)
-        .field("Support server", format!("[Join us]({})", embeds::SUPPORT_URL), true)
-}
 
 struct HelpPage {
     category: String,
@@ -90,6 +81,17 @@ async fn build_pages(ctx: Context<'_>) -> Vec<HelpPage> {
             pages.push(HelpPage { category: name, body });
         }
     }
+
+    pages.push(HelpPage {
+        category: "Links".to_string(),
+        body: format!(
+            "[Documentation]({})\n[Status]({})\n[Dashboard]({})\n[Support server]({})",
+            embeds::DOCS_URL,
+            embeds::STATUS_URL,
+            embeds::DASHBOARD_URL,
+            embeds::SUPPORT_URL,
+        ),
+    });
 
     pages
 }
@@ -185,7 +187,6 @@ pub async fn help(ctx: Context<'_>, #[description = "Specific command to show he
     }
 
     let reply = ctx.send(render_page(&pages, 0)).await?;
-    ctx.send(CreateReply::default().embed(quick_links_embed())).await?;
 
     let msg = reply.into_message().await?;
 
@@ -239,8 +240,6 @@ pub async fn simplehelp(
     #[autocomplete = "poise::builtins::autocomplete_command"]
     command: Option<String>,
 ) -> Result<(), Error> {
-    let is_overview = command.is_none();
-
     poise::builtins::help(
         ctx,
         command.as_deref(),
@@ -250,10 +249,6 @@ pub async fn simplehelp(
         },
     )
     .await?;
-
-    if is_overview {
-        ctx.send(CreateReply::default().embed(quick_links_embed())).await?;
-    }
 
     Ok(())
 }

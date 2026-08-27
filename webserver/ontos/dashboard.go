@@ -1,3 +1,5 @@
+//  Copyright (C) 2026 NodeByte LTD
+
 package ontos
 
 import (
@@ -6,6 +8,7 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -98,6 +101,7 @@ type dashboardRepo struct {
 	RepoName    string `json:"repo_name"`
 	ChannelID   string `json:"channel_id"`
 	ChannelName string `json:"channel_name,omitempty"`
+	UseThreads  bool   `json:"use_threads"`
 }
 
 type dashboardModifier struct {
@@ -115,6 +119,7 @@ type dashboardWebhook struct {
 	ID             string              `json:"id"`
 	Comment        string              `json:"comment"`
 	Broken         bool                `json:"broken"`
+	BatchEvents    bool                `json:"batch_events"`
 	CreatedAt      time.Time           `json:"created_at"`
 	Repos          []dashboardRepo     `json:"repos"`
 	EventModifiers []dashboardModifier `json:"event_modifiers"`
@@ -132,7 +137,7 @@ func ApiDashboardGuild(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := state.Pool.Query(
 		state.Context,
-		"SELECT id, comment, broken, created_at FROM "+state.TableWebhooks+" WHERE guild_id = $1",
+		"SELECT id, comment, broken, batch_events, created_at FROM "+state.TableWebhooks+" WHERE guild_id = $1",
 		guildId,
 	)
 
@@ -147,7 +152,7 @@ func ApiDashboardGuild(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var wh dashboardWebhook
 
-		if err := rows.Scan(&wh.ID, &wh.Comment, &wh.Broken, &wh.CreatedAt); err != nil {
+		if err := rows.Scan(&wh.ID, &wh.Comment, &wh.Broken, &wh.BatchEvents, &wh.CreatedAt); err != nil {
 			writeError(w, http.StatusInternalServerError, "Error scanning webhook: "+err.Error())
 			return
 		}
@@ -161,7 +166,7 @@ func ApiDashboardGuild(w http.ResponseWriter, r *http.Request) {
 	for i := range webhooks {
 		repoRows, err := state.Pool.Query(
 			state.Context,
-			"SELECT id, repo_name, channel_id FROM "+state.TableRepos+" WHERE webhook_id = $1",
+			"SELECT id, repo_name, channel_id, use_threads FROM "+state.TableRepos+" WHERE webhook_id = $1",
 			webhooks[i].ID,
 		)
 
@@ -173,7 +178,7 @@ func ApiDashboardGuild(w http.ResponseWriter, r *http.Request) {
 		for repoRows.Next() {
 			var repo dashboardRepo
 
-			if err := repoRows.Scan(&repo.ID, &repo.RepoName, &repo.ChannelID); err != nil {
+			if err := repoRows.Scan(&repo.ID, &repo.RepoName, &repo.ChannelID, &repo.UseThreads); err != nil {
 				repoRows.Close()
 				writeError(w, http.StatusInternalServerError, "Error scanning repo: "+err.Error())
 				return
@@ -302,6 +307,7 @@ type updateWebhookRequest struct {
 	GuildID      string  `json:"guild_id"`
 	Comment      *string `json:"comment"`
 	Broken       *bool   `json:"broken"`
+	BatchEvents  *bool   `json:"batch_events"`
 	ActingUserID string  `json:"acting_user_id"`
 }
 
@@ -333,6 +339,12 @@ func ApiDashboardUpdateWebhook(w http.ResponseWriter, r *http.Request) {
 	if req.Broken != nil {
 		if _, err := tx.Exec(state.Context, "UPDATE "+state.TableWebhooks+" SET broken = $1 WHERE id = $2 AND guild_id = $3", *req.Broken, id, req.GuildID); err != nil {
 			writeError(w, http.StatusInternalServerError, "Error updating broken flag: "+err.Error())
+			return
+		}
+	}
+	if req.BatchEvents != nil {
+		if _, err := tx.Exec(state.Context, "UPDATE "+state.TableWebhooks+" SET batch_events = $1 WHERE id = $2 AND guild_id = $3", *req.BatchEvents, id, req.GuildID); err != nil {
+			writeError(w, http.StatusInternalServerError, "Error updating batch_events flag: "+err.Error())
 			return
 		}
 	}
@@ -479,6 +491,7 @@ type updateRepoRequest struct {
 	GuildID      string  `json:"guild_id"`
 	RepoName     *string `json:"repo_name"`
 	ChannelID    *string `json:"channel_id"`
+	UseThreads   *bool   `json:"use_threads"`
 	ActingUserID string  `json:"acting_user_id"`
 }
 
@@ -511,6 +524,12 @@ func ApiDashboardUpdateRepo(w http.ResponseWriter, r *http.Request) {
 	if req.ChannelID != nil {
 		if _, err := tx.Exec(state.Context, "UPDATE "+state.TableRepos+" SET channel_id = $1 WHERE id = $2 AND guild_id = $3", *req.ChannelID, id, req.GuildID); err != nil {
 			writeError(w, http.StatusInternalServerError, "Error updating channel: "+err.Error())
+			return
+		}
+	}
+	if req.UseThreads != nil {
+		if _, err := tx.Exec(state.Context, "UPDATE "+state.TableRepos+" SET use_threads = $1 WHERE id = $2 AND guild_id = $3", *req.UseThreads, id, req.GuildID); err != nil {
+			writeError(w, http.StatusInternalServerError, "Error updating use_threads flag: "+err.Error())
 			return
 		}
 	}
@@ -547,8 +566,6 @@ func ApiDashboardDeleteRepo(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
-
-// --- Event modifiers ---
 
 type createModifierRequest struct {
 	GuildID         string  `json:"guild_id"`
@@ -716,6 +733,93 @@ func ApiDashboardUpdateModifier(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+type analyticsDay struct {
+	Date  string `json:"date"`
+	Count int    `json:"count"`
+}
+
+type analyticsEventType struct {
+	EventType string `json:"event_type"`
+	Count     int    `json:"count"`
+}
+
+func ApiDashboardAnalytics(w http.ResponseWriter, r *http.Request) {
+	guildId := chi.URLParam(r, "guildId")
+
+	days := 30
+	if v := r.URL.Query().Get("days"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+			days = parsed
+		}
+	}
+	if days > 90 {
+		days = 90
+	}
+
+	webhookId := r.URL.Query().Get("webhook_id")
+
+	perDayRows, err := state.Pool.Query(
+		state.Context,
+		`SELECT date_trunc('day', m.occurred_at) AS day, COUNT(*) AS count
+		FROM `+state.TableEventMetrics+` m
+		JOIN `+state.TableWebhooks+` w ON w.id = m.webhook_id
+		WHERE w.guild_id = $1
+			AND m.occurred_at >= NOW() - ($2 || ' days')::interval
+			AND ($3 = '' OR m.webhook_id = $3)
+		GROUP BY day
+		ORDER BY day ASC`,
+		guildId, days, webhookId,
+	)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Error aggregating analytics: "+err.Error())
+		return
+	}
+
+	perDay := []analyticsDay{}
+	for perDayRows.Next() {
+		var day time.Time
+		var count int
+		if err := perDayRows.Scan(&day, &count); err != nil {
+			continue
+		}
+		perDay = append(perDay, analyticsDay{Date: day.Format("2006-01-02"), Count: count})
+	}
+	perDayRows.Close()
+
+	byTypeRows, err := state.Pool.Query(
+		state.Context,
+		`SELECT m.event_type, COUNT(*) AS count
+		FROM `+state.TableEventMetrics+` m
+		JOIN `+state.TableWebhooks+` w ON w.id = m.webhook_id
+		WHERE w.guild_id = $1
+			AND m.occurred_at >= NOW() - ($2 || ' days')::interval
+			AND ($3 = '' OR m.webhook_id = $3)
+		GROUP BY m.event_type
+		ORDER BY count DESC`,
+		guildId, days, webhookId,
+	)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Error aggregating analytics by type: "+err.Error())
+		return
+	}
+
+	byType := []analyticsEventType{}
+	for byTypeRows.Next() {
+		var eventType string
+		var count int
+		if err := byTypeRows.Scan(&eventType, &count); err != nil {
+			continue
+		}
+		byType = append(byType, analyticsEventType{EventType: eventType, Count: count})
+	}
+	byTypeRows.Close()
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"per_day": perDay,
+		"by_type": byType,
+	})
 }
 
 func ApiDashboardDeleteModifier(w http.ResponseWriter, r *http.Request) {

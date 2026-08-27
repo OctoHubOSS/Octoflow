@@ -1,6 +1,4 @@
-// Shared branding for every embed the bot sends: a consistent color, and
-// constants for the docs/status/dashboard/support links so commands can point
-// people to the right place instead of leaving them to figure it out.
+//  Copyright (C) 2026 NodeByte LTD
 
 use poise::serenity_prelude::{CreateEmbed, CreateEmbedFooter};
 

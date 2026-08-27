@@ -1,3 +1,3 @@
-// Logos (Xenoblade Chronicles 2), the core component that provides logic to Octoflow,
-// removing the useless crud
+//  Copyright (C) 2026 NodeByte LTD
+
 package logos

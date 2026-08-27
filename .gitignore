@@ -14,3 +14,4 @@ webserver/webserver.exe
 **/*.tar.gz
 dist
 config.yaml
+ROADMAP.md

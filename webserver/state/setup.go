@@ -1,3 +1,5 @@
+//  Copyright (C) 2026 NodeByte LTD
+
 package state
 
 import (
@@ -22,6 +24,9 @@ var (
 	TableWebhookLogs     = "webhook_logs"
 	TableBotHeartbeat    = "bot_heartbeat"
 	TableStatusSnapshots = "status_snapshots"
+	TableIssueThreads    = "issue_threads"
+	TableEventMetrics    = "event_metrics"
+	TableAdminAuditLog   = "admin_audit_log"
 
 	TableList = []*string{
 		&TableEventModifiers,
@@ -31,6 +36,9 @@ var (
 		&TableWebhookLogs,
 		&TableBotHeartbeat,
 		&TableStatusSnapshots,
+		&TableIssueThreads,
+		&TableEventMetrics,
+		&TableAdminAuditLog,
 	}
 )
 
@@ -163,6 +171,8 @@ func ApplyMigrations() {
 		ALTER TABLE `+TableWebhookLogs+` ADD COLUMN IF NOT EXISTS guild_id TEXT NOT NULL REFERENCES `+TableGuilds+` (id) ON UPDATE CASCADE ON DELETE CASCADE;
 
 		ALTER TABLE `+TableWebhooks+` ADD COLUMN IF NOT EXISTS broken BOOLEAN NOT NULL DEFAULT false;
+		ALTER TABLE `+TableWebhooks+` ADD COLUMN IF NOT EXISTS batch_events BOOLEAN NOT NULL DEFAULT false;
+		ALTER TABLE `+TableRepos+` ADD COLUMN IF NOT EXISTS use_threads BOOLEAN NOT NULL DEFAULT false;
 
 		CREATE TABLE IF NOT EXISTS `+TableBotHeartbeat+` (
 			id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
@@ -178,6 +188,33 @@ func ApplyMigrations() {
 			database_up BOOLEAN NOT NULL,
 			discord_up BOOLEAN NOT NULL,
 			db_latency_ms INTEGER NOT NULL
+		);
+
+		CREATE TABLE IF NOT EXISTS `+TableIssueThreads+` (
+			id BIGSERIAL PRIMARY KEY,
+			repo_id TEXT NOT NULL REFERENCES `+TableRepos+` (id) ON DELETE CASCADE ON UPDATE CASCADE,
+			issue_number INTEGER NOT NULL,
+			kind TEXT NOT NULL CHECK (kind IN ('issue', 'pull_request')),
+			thread_id TEXT NOT NULL,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			UNIQUE (repo_id, issue_number, kind)
+		);
+
+		CREATE TABLE IF NOT EXISTS `+TableEventMetrics+` (
+			id BIGSERIAL PRIMARY KEY,
+			webhook_id TEXT NOT NULL REFERENCES `+TableWebhooks+` (id) ON DELETE CASCADE ON UPDATE CASCADE,
+			repo_id TEXT REFERENCES `+TableRepos+` (id) ON DELETE CASCADE ON UPDATE CASCADE,
+			event_type TEXT NOT NULL,
+			occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		);
+
+		CREATE TABLE IF NOT EXISTS `+TableAdminAuditLog+` (
+			id BIGSERIAL PRIMARY KEY,
+			admin_user_id TEXT NOT NULL,
+			action TEXT NOT NULL,
+			target TEXT,
+			detail TEXT,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
 	`)
 

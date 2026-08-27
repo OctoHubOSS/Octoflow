@@ -1,3 +1,5 @@
+//  Copyright (C) 2026 NodeByte LTD
+
 package ontos
 
 import (
@@ -9,8 +11,6 @@ import (
 
 const snapshotInterval = 5 * time.Minute
 
-// StartStatusSnapshotter runs forever, recording a status_snapshots row every snapshotInterval
-// so the status page can render historical uptime rather than just a live check.
 func StartStatusSnapshotter() {
 	ticker := time.NewTicker(snapshotInterval)
 	defer ticker.Stop()
