@@ -2,10 +2,11 @@
 
 use std::time::Duration;
 
-use log::{error, info};
+use log::{error, info, warn};
 use poise::serenity_prelude::{
     self as prelude, FullEvent,
 };
+use serde::Serialize;
 use sqlx::postgres::PgPoolOptions;
 use serenity::gateway::ActivityData;
 use std::sync::Arc;
@@ -200,6 +201,7 @@ async fn main() {
         .expect("Error creating client");
 
     tokio::spawn(heartbeat_task(client.cache.clone(), heartbeat_pool));
+    tokio::spawn(omniplex_stats_task(client.cache.clone()));
 
     if let Err(why) = client.start().await {
         error!("Client error: {:?}", why);
@@ -236,6 +238,67 @@ async fn heartbeat_task(cache: Arc<prelude::Cache>, pool: sqlx::PgPool) {
 
         if let Err(e) = result {
             error!("Failed to upsert bot heartbeat: {:?}", e);
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct OmniplexStats {
+    servers: u64,
+    shards: u64,
+    users: u64,
+    shard_list: Vec<u64>,
+    status: &'static str,
+}
+
+async fn omniplex_stats_task(cache: Arc<prelude::Cache>) {
+    let Some(token) = config::CONFIG.omniplex_token.clone() else {
+        info!("omniplex_token not set, skipping Omniplex stats reporting");
+        return;
+    };
+
+    let client = reqwest::Client::new();
+    let mut interval = tokio::time::interval(Duration::from_secs(5 * 60));
+
+    loop {
+        interval.tick().await;
+
+        let guild_ids = cache.guilds();
+        let servers = guild_ids.len() as u64;
+        let shards: u64 = cache.shard_count().get().into();
+
+        let mut users: u64 = 0;
+        for guild_id in &guild_ids {
+            if let Some(guild) = cache.guild(*guild_id) {
+                users += guild.member_count;
+            }
+        }
+
+        let payload = OmniplexStats {
+            servers,
+            shards,
+            users,
+            shard_list: (0..shards).collect(),
+            status: "online",
+        };
+
+        let result = client
+            .post("https://api.omniplex.gg/bots/stats")
+            .header("Authorization", format!("Bot {}", token))
+            .json(&payload)
+            .send()
+            .await;
+
+        match result {
+            Ok(resp) if !resp.status().is_success() => {
+                warn!(
+                    "Omniplex stats post rejected: {} {}",
+                    resp.status(),
+                    resp.text().await.unwrap_or_default()
+                );
+            }
+            Err(e) => warn!("Failed to post Omniplex stats: {:?}", e),
+            _ => {}
         }
     }
 }

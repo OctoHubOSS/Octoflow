@@ -85,10 +85,12 @@ async fn build_pages(ctx: Context<'_>) -> Vec<HelpPage> {
     pages.push(HelpPage {
         category: "Links".to_string(),
         body: format!(
-            "[Documentation]({})\n[Status]({})\n[Dashboard]({})\n[Support server]({})",
+            "[Website]({})\n[Documentation]({})\n[Status]({})\n[Dashboard]({})\n[Commands]({})\n[Support server]({})",
+            embeds::SITE_URL,
             embeds::DOCS_URL,
             embeds::STATUS_URL,
             embeds::DASHBOARD_URL,
+            embeds::COMMANDS_URL,
             embeds::SUPPORT_URL,
         ),
     });

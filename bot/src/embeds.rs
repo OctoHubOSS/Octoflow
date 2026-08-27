@@ -8,6 +8,7 @@ pub const SITE_URL: &str = "https://octoflow.ca";
 pub const DOCS_URL: &str = "https://octoflow.ca/docs";
 pub const STATUS_URL: &str = "https://octoflow.ca/status";
 pub const DASHBOARD_URL: &str = "https://octoflow.ca/dashboard";
+pub const COMMANDS_URL: &str = "https://octoflow.ca/commands";
 pub const SUPPORT_URL: &str = "https://discord.gg/Sj2SWMZe2J";
 
 

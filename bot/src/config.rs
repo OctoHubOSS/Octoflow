@@ -14,6 +14,7 @@ pub struct Config {
     pub token: String,
     pub api_url: Vec<String>,
     pub proxy_url: Option<String>,
+    pub omniplex_token: Option<String>,
 }
 
 impl Default for Config {
@@ -23,6 +24,7 @@ impl Default for Config {
             token: String::from(""),
             api_url: vec![String::from("https://v2.gitlogs.xyz")],
             proxy_url: Some(String::from("http://127.0.0.1:3219")),
+            omniplex_token: None,
         }
     }
 }

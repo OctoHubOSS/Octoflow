@@ -9,6 +9,21 @@ moves forward.
 
 ## [Unreleased]
 
+### Added
+- `octoflow.ca/commands`: a searchable, at-a-glance commands page (separate
+  from the full `/docs/commands` reference), linked in the site nav.
+- Omniplex bot-list stats reporting: posts server/shard/user counts and a
+  self-reported `online` presence to `POST /bots/stats` on
+  `api.omniplex.gg` every 5 minutes. Opt-in via a new `omniplex_token` config
+  field - left unset, the task logs once and never posts.
+
+### Changed
+- The site nav now shows a signed-in visitor's Discord avatar/username
+  (linking to the dashboard, or to `/admin` with a shield badge if they have
+  admin access) instead of staying anonymous-looking once logged in. Forces
+  the home/docs/legal pages into per-request rendering instead of full
+  static generation, since it reads the session cookie.
+
 ## [2.2.0] - 2026-08-26
 
 ### Added
