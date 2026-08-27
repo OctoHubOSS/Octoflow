@@ -40,7 +40,7 @@ moves forward.
   instead of a second message sent alongside it - everything lives in one
   embed, reachable via Next/Previous or the page-select menu.
 
-## [2.1.0] - 2026-08-27
+## [2.1.0] - 2026-08-26
 
 ### Added
 - Dashboard: Discord OAuth-gated web UI (`octoflow.ca/dashboard`) for viewing
