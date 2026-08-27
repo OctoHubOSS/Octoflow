@@ -35,6 +35,7 @@ func main() {
 	r.HandleFunc("/api/events/csview", ontos.ApiEventsCommaSepView)
 	r.HandleFunc("/api/health", ontos.ApiHealth)
 	r.HandleFunc("/api/status/history", ontos.ApiStatusHistory)
+	r.HandleFunc("/api/stats/summary", ontos.ApiPublicStats)
 
 	r.Route("/api/dashboard", func(r chi.Router) {
 		r.Use(ontos.DashboardAuth)

@@ -46,11 +46,19 @@ moves forward.
 - CI: `webserver.yml` and `status-checker.yml` GitHub Actions workflows,
   building and testing the Go webserver and the new status-checker service
   the same way `rust.yml` already does for the bot.
+- `/api/stats/summary`: a new public, unauthenticated endpoint returning
+  aggregate totals (webhooks configured, repos connected, events processed
+  in the last 24h/7d/30d/all-time, plus the existing guild/member/shard
+  counts) with no guild-identifying data. Powers an expanded
+  `octoflow.ca/stats` page.
 
 ### Changed
 - `/help`'s quick-links are now the last page of the command pagination
   instead of a second message sent alongside it - everything lives in one
   embed, reachable via Next/Previous or the page-select menu.
+- The status page's uptime strip no longer risks pushing the page into
+  horizontal scroll on narrow viewports - its per-day tooltip is now clipped
+  locally instead of relying solely on a page-wide backstop.
 
 ## [2.1.0] - 2026-08-26
 
