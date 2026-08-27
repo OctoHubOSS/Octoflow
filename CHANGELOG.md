@@ -9,6 +9,37 @@ moves forward.
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-08-26
+
+### Added
+- Thread-per-PR/issue mode (`use_threads` on a repo): opens a Discord thread
+  when an issue or PR is opened, then routes its follow-up activity
+  (comments, reviews, status changes) into that thread instead of posting
+  flat messages into the channel. Backed by a new `issue_threads` table.
+  Falls back to a normal channel post if the bot only sees an issue/PR after
+  it was already opened.
+- Burst batching (`batch_events` on a webhook): collapses rapid consecutive
+  `push` events into one combined summary embed instead of one per push,
+  using a 20-second buffering window. Only `push` is batched for now.
+- Dashboard analytics: an events-per-day chart and a top-event-types
+  breakdown on each guild's dashboard page, backed by a new `event_metrics`
+  table and a `/api/dashboard/guilds/{guildId}/analytics` endpoint.
+- `/edithook` gained a `batch_events` toggle, `/editrepo` gained a
+  `use_threads` toggle - both optional, both mirrored as checkboxes in the
+  dashboard's webhook/repo edit dialogs.
+- Bot admin panel (`octoflow.ca/admin`): global stats (guild/webhook/repo
+  counts, event volume, bot heartbeat), guild ban/unban, a webhook-log
+  search tool, and an admin action audit trail. Gated by a Discord user ID
+  allowlist (`admin_user_ids` in the webserver config), checked on every
+  request rather than just at login.
+- `ROADMAP.md` - a running, non-committal list of feature ideas under
+  consideration for future releases.
+
+### Changed
+- `/help`'s quick-links are now the last page of the command pagination
+  instead of a second message sent alongside it - everything lives in one
+  embed, reachable via Next/Previous or the page-select menu.
+
 ## [2.1.0] - 2026-08-27
 
 ### Added
