@@ -33,7 +33,3 @@ git = "https://github.com/serenity-rs/serenity"
 branch = "next"
 features = ["model", "http", "cache", "rustls_backend"]
 
-[dependencies.botox]
-git = "https://github.com/infinitybotlist/botox"
-branch = "main"
-

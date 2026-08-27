@@ -1,12 +1,11 @@
-// Event modifier related commands
-
-use poise::serenity_prelude::{ChannelId, CreateEmbed};
+use poise::serenity_prelude::ChannelId;
 use poise::CreateReply;
 use rand::distributions::{Alphanumeric, DistString};
 
-use crate::{Context, Error};
+use crate::{Context, Error, embeds};
 
-/// Event modifier base command
+const NO_WEBHOOKS_MSG: &str = "You don't have any webhooks in this guild. Run `/newhook` to create one.";
+
 #[poise::command(
     category = "Event Modifiers",
     slash_command,
@@ -17,7 +16,6 @@ pub async fn eventmod(_ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
-/// Creates a event modifier on a webhook
 #[poise::command(
     slash_command,
     guild_only,
@@ -32,15 +30,12 @@ pub async fn create(
     #[description = "Blacklist the events"] blacklisted: bool,
     #[description = "Whitelist the events. Other events will not be allowed"] whitelisted: bool,
     #[description = "Priority. Use 0 for normal priority"] priority: Option<i32>,
-    // Lazy = "prefer to parse the current argument as the other params first"
     #[description = "Repository ID, will match all if unset"]
     #[lazy]
     repo_id: Option<String>,
     #[description = "Redirect channel ID"] redirect_channel: Option<ChannelId>,
 ) -> Result<(), Error> {
     let data = ctx.data();
-
-    // Check if the guild exists on our DB
     let guild = sqlx::query!(
         "SELECT COUNT(1) FROM guilds WHERE id = $1",
         ctx.guild_id().unwrap().to_string()
@@ -49,11 +44,9 @@ pub async fn create(
     .await?;
 
     if guild.count.unwrap_or_default() == 0 {
-        // If it doesn't, return a error
-        return Err("You don't have any webhooks in this guild! Use ``/newhook`` to create one".into());
+        return Err(NO_WEBHOOKS_MSG.into());
     }
 
-    // Check webhook count
     let webhook_count = sqlx::query!(
         "SELECT COUNT(1) FROM webhooks WHERE guild_id = $1",
         ctx.guild_id().unwrap().to_string()
@@ -64,9 +57,8 @@ pub async fn create(
     let count = webhook_count.count.unwrap_or_default();
 
     if count == 0 {
-        Err("You don't have any webhooks in this guild! Use ``/newhook`` to create one".into())
+        Err(NO_WEBHOOKS_MSG.into())
     } else {
-        // Check if the webhook exists
         let webhook = sqlx::query!(
             "SELECT COUNT(1) FROM webhooks WHERE id = $1 AND guild_id = $2",
             webhook_id,
@@ -76,19 +68,16 @@ pub async fn create(
         .await?;
 
         if webhook.count.unwrap_or_default() == 0 {
-            return Err(
-                "That webhook doesn't exist! Use ``/newhook`` to create one"
-                    .into(),
-            );
+            return Err("That webhook doesn't exist. Use `/newhook` to create one, or `/list` to see your existing webhooks.".into());
         }
 
-        let mut parsed_repo_id = repo_id.clone(); // Since prefix commands suck without this
+        let mut parsed_repo_id = repo_id.clone();
 
         if let Some(ref inner_repo_id) = repo_id {
             if inner_repo_id.is_empty() || inner_repo_id == "None" || inner_repo_id == "none" {
                 parsed_repo_id = None;
             } else {
-                // Check if the repo exists
+
                 let repo = sqlx::query!(
                     "SELECT COUNT(1) FROM repos WHERE id = $1 AND webhook_id = $2",
                     inner_repo_id,
@@ -98,15 +87,11 @@ pub async fn create(
                 .await?;
 
                 if repo.count.unwrap_or_default() == 0 {
-                    return Err("That repo doesn't exist! Use ``/newrepo`` to create one".into());
+                    return Err("That repo doesn't exist on this webhook. Use `/newrepo` to link it first.".into());
                 }
             }
         }
 
-        // Lowercased: GitHub's event header is always lowercase, and the
-        // matcher on the webserver side compares case-insensitively, but
-        // storing it lowercase too keeps /eventmod list honest about what
-        // will actually match.
         let events = events
             .replace('`', "")
             .replace(',', " ")
@@ -116,7 +101,6 @@ pub async fn create(
             .map(|s| s.to_string())
             .collect::<Vec<String>>();
 
-        // Check the number of modifiers we already have
         let modifier_count = sqlx::query!(
             "SELECT COUNT(1) FROM event_modifiers WHERE webhook_id = $1",
             webhook_id
@@ -127,10 +111,9 @@ pub async fn create(
         let count = modifier_count.count.unwrap_or_default();
 
         if count >= 10 {
-            return Err("You can only have 10 event modifiers per webhook!".into());
+            return Err("You can only have 10 event modifiers per webhook. Delete one with `/eventmod delete` first.".into());
         }
 
-        // Create the event modifier
         let modifier_id = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
         sqlx::query!(
             "INSERT INTO event_modifiers (id, webhook_id, events, repo_id, blacklisted, whitelisted, redirect_channel, guild_id, priority, created_by, last_updated_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
@@ -149,14 +132,38 @@ pub async fn create(
         .execute(&data.pool)
         .await?;
 
-        ctx.say(format!("Modifier created with ID ``{}``.", modifier_id))
-            .await?;
+        let kind = if whitelisted {
+            "Whitelist"
+        } else if blacklisted {
+            "Blacklist"
+        } else {
+            "No-op (both blacklisted and whitelisted are false)"
+        };
+
+        ctx.send(CreateReply::default().embed(
+            embeds::base()
+                .title("Event modifier created")
+                .url(format!("{}/commands/modifiers", embeds::DOCS_URL))
+                .field("ID", format!("`{}`", modifier_id), true)
+                .field("Type", kind, true)
+                .field("Priority", priority.unwrap_or_default().to_string(), true)
+                .field("Events", format!("`{}`", events.join(", ")), false)
+                .field(
+                    "Repo scope",
+                    parsed_repo_id.unwrap_or_else(|| "All repos on this webhook".to_string()),
+                    true,
+                )
+                .field(
+                    "Redirect channel",
+                    redirect_channel.map(|c| format!("<#{}>", c)).unwrap_or_else(|| "None".to_string()),
+                    true,
+                ),
+        )).await?;
 
         Ok(())
     }
 }
 
-/// Deletes a event modifier by id
 #[poise::command(
     slash_command,
     guild_only,
@@ -169,7 +176,6 @@ pub async fn delete(
 ) -> Result<(), Error> {
     let data = ctx.data();
 
-    // Check if the guild exists on our DB
     let guild = sqlx::query!(
         "SELECT COUNT(1) FROM guilds WHERE id = $1",
         ctx.guild_id().unwrap().to_string()
@@ -178,11 +184,9 @@ pub async fn delete(
     .await?;
 
     if guild.count.unwrap_or_default() == 0 {
-        // If it doesn't, return a error
-        return Err("You don't have any webhooks in this guild! Use ``/newhook`` to create one".into());
+        return Err(NO_WEBHOOKS_MSG.into());
     }
 
-    // Check for event modifiers
     let modifier_count = sqlx::query!(
         "SELECT COUNT(1) FROM event_modifiers WHERE guild_id = $1 AND id = $2",
         ctx.guild_id().unwrap().to_string(),
@@ -194,20 +198,18 @@ pub async fn delete(
     let count = modifier_count.count.unwrap_or_default();
 
     if count == 0 {
-        return Err("That modifier doesn't exist!".into());
+        return Err("That modifier doesn't exist. Use `/eventmod list` to see your existing modifiers.".into());
     }
 
-    // Delete the event modifier
     sqlx::query!("DELETE FROM event_modifiers WHERE id = $1", modifier_id)
         .execute(&data.pool)
         .await?;
 
-    ctx.say("Modifier deleted!").await?;
+    ctx.say("Event modifier deleted.").await?;
 
     Ok(())
 }
 
-/// Lists all event modifiers in this guild, optionally filtered to one webhook
 #[poise::command(slash_command, guild_only, required_permissions = "MANAGE_GUILD")]
 pub async fn list(
     ctx: Context<'_>,
@@ -229,11 +231,11 @@ pub async fn list(
     .await?;
 
     if modifiers.is_empty() {
-        ctx.say("No event modifiers found. Use ``/eventmod create`` to create one").await?;
+        ctx.say(format!("No event modifiers found. Use `/eventmod create` to create one. See the [event modifiers guide]({}/commands/modifiers) for wildcard syntax and examples.", embeds::DOCS_URL)).await?;
         return Ok(());
     }
 
-    let mut cr = CreateReply::default().content("Here are the event modifiers in this guild:");
+    let mut cr = CreateReply::default().content("Here are the event modifiers in this guild, in evaluation order (highest priority first):");
 
     for modifier in modifiers {
         let kind = if modifier.whitelisted {
@@ -241,24 +243,24 @@ pub async fn list(
         } else if modifier.blacklisted {
             "Blacklist"
         } else {
-            "Neither (has no effect)"
+            "No-op (has no effect)"
         };
 
         cr = cr.embed(
-            CreateEmbed::new()
+            embeds::base()
                 .title(format!("{} Modifier", kind))
-                .field("ID", format!("``{}``", modifier.id), false)
-                .field("Webhook", modifier.webhook_id, true)
+                .field("ID", format!("`{}`", modifier.id), false)
+                .field("Webhook", format!("`{}`", modifier.webhook_id), true)
                 .field("Repo", modifier.repo_id.unwrap_or_else(|| "All repos".to_string()), true)
                 .field("Priority", modifier.priority.to_string(), true)
                 .field("Type", kind, true)
                 .field(
                     "Redirect channel",
-                    modifier.redirect_channel.unwrap_or_else(|| "Default channel".to_string()),
+                    modifier.redirect_channel.map(|c| format!("<#{}>", c)).unwrap_or_else(|| "Default channel".to_string()),
                     true,
                 )
-                .field("Events", modifier.events.join(", "), false)
-                .field("Created at", modifier.created_at.to_string(), false),
+                .field("Events", format!("`{}`", modifier.events.join(", ")), false)
+                .field("Created at", format!("<t:{}:R>", modifier.created_at.timestamp()), false),
         );
     }
 
@@ -267,7 +269,6 @@ pub async fn list(
     Ok(())
 }
 
-/// Edits an event modifier. Only the fields you provide are changed
 #[poise::command(
     slash_command,
     guild_only,
@@ -289,8 +290,6 @@ pub async fn edit(
 
     let guild_id = ctx.guild_id().unwrap().to_string();
 
-    // Check the modifier exists (and belongs to this guild) and grab its webhook_id,
-    // since a changed repo_id needs to be checked against the same webhook.
     let existing = sqlx::query!(
         "SELECT webhook_id FROM event_modifiers WHERE id = $1 AND guild_id = $2",
         modifier_id,
@@ -367,7 +366,7 @@ pub async fn edit(
             .await?;
 
             if repo.count.unwrap_or_default() == 0 {
-                return Err("That repo doesn't exist! Use ``/newrepo`` to create one".into());
+                return Err("That repo doesn't exist on this webhook. Use `/newrepo` to link it first.".into());
             }
 
             Some(repo_id)
@@ -392,7 +391,6 @@ pub async fn edit(
         .await?;
     }
 
-    // Update last_updated_by regardless, matching edithook's convention.
     sqlx::query!(
         "UPDATE event_modifiers SET last_updated_by = $1 WHERE id = $2",
         ctx.author().id.to_string(),

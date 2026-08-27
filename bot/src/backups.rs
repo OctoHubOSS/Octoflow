@@ -4,9 +4,10 @@ use poise::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{Context, Error};
+use crate::{Context, Error, embeds};
 
 const PROTOCOL: u8 = 2;
+const NO_WEBHOOKS_MSG: &str = "You don't have any webhooks in this guild. Run `/newhook` to create one.";
 
 #[derive(Serialize, Deserialize)]
 struct Repo {
@@ -38,7 +39,6 @@ struct ProtocolCheck {
     protocol: Option<u8>,
 }
 
-/// Backups the repositories of a webhook to a JSON file
 #[poise::command(
     slash_command,
     guild_only,
@@ -50,7 +50,6 @@ pub async fn backup(
 ) -> Result<(), Error> {
     let data = ctx.data();
 
-    // Check if the guild exists on our DB
     let guild = sqlx::query!(
         "SELECT COUNT(1) FROM guilds WHERE id = $1",
         ctx.guild_id().unwrap().to_string()
@@ -59,11 +58,9 @@ pub async fn backup(
     .await?;
 
     if guild.count.unwrap_or_default() == 0 {
-        // If it doesn't, return a error
-        return Err("You don't have any webhooks in this guild! Use ``/newhook`` to create one".into());
+        return Err(NO_WEBHOOKS_MSG.into());
     }
 
-    // Check if the webhook exists
     let webhook = sqlx::query!(
         "SELECT COUNT(1) FROM webhooks WHERE id = $1 AND guild_id = $2",
         id,
@@ -73,7 +70,7 @@ pub async fn backup(
     .await?;
 
     if webhook.count.unwrap_or_default() == 0 {
-        return Err("You don't have any webhooks in this guild! Use ``/newhook`` to create one".into());
+        return Err(NO_WEBHOOKS_MSG.into());
     }
 
     let rows = sqlx::query!(
@@ -93,7 +90,6 @@ pub async fn backup(
         });
     }
 
-    // Fetch the event modifiers
     let rows = sqlx::query!(
         "SELECT id, repo_id, events, blacklisted, whitelisted, redirect_channel, priority FROM event_modifiers WHERE webhook_id = $1 AND guild_id = $2",
         id,
@@ -116,6 +112,9 @@ pub async fn backup(
         });
     }
 
+    let repo_count = repos.len();
+    let modifier_count = event_modifiers.len();
+
     let json = serde_json::to_string(&Backup {
         protocol: PROTOCOL,
         event_modifiers,
@@ -123,7 +122,10 @@ pub async fn backup(
     })?;
 
     let msg = CreateReply::default()
-        .content("Here's your backup file!")
+        .content(format!(
+            "Backup ready: {} repo(s), {} event modifier(s) (protocol v{}). Store this file somewhere safe, then use `/restore` to apply it to a webhook later. See the [backups guide]({}/commands/backups) for details.",
+            repo_count, modifier_count, PROTOCOL, embeds::DOCS_URL
+        ))
         .attachment(CreateAttachment::bytes(json.into_bytes(), id + ".glb"));
 
     ctx.send(msg).await?;
@@ -131,7 +133,6 @@ pub async fn backup(
     Ok(())
 }
 
-/// Restore a created backup to a webhook
 #[poise::command(category = "Backups", slash_command, guild_only)]
 pub async fn restore(
     ctx: Context<'_>,
@@ -140,7 +141,6 @@ pub async fn restore(
 ) -> Result<(), Error> {
     let data = ctx.data();
 
-    // Check if the guild exists on our DB
     let guild = sqlx::query!(
         "SELECT COUNT(1) FROM guilds WHERE id = $1",
         ctx.guild_id().unwrap().to_string()
@@ -149,11 +149,9 @@ pub async fn restore(
     .await?;
 
     if guild.count.unwrap_or_default() == 0 {
-        // If it doesn't, return a error
-        return Err("You don't have any webhooks in this guild! Use ``/newhook`` to create one".into());
+        return Err(NO_WEBHOOKS_MSG.into());
     }
 
-    // Check if the webhook exists
     let webhook = sqlx::query!(
         "SELECT COUNT(1) FROM webhooks WHERE id = $1 AND guild_id = $2",
         id,
@@ -163,10 +161,7 @@ pub async fn restore(
     .await?;
 
     if webhook.count.unwrap_or_default() == 0 {
-        return Err(
-            "That webhook doesn't exist! Use ``/newhook`` to create one"
-                .into(),
-        );
+        return Err("That webhook doesn't exist. Use `/newhook` to create one, or `/list` to see your existing webhooks.".into());
     }
 
     let backup_bytes = file.download().await?;
@@ -175,29 +170,22 @@ pub async fn restore(
 
     if backup_protocol.protocol.unwrap_or_default() != PROTOCOL {
         return Err(format!(
-            "This backup file is not compatible with this version of the bot. 
-
-Protocol version expected: {},
-Protocol version found: {}                
-
-Please contact our support team.
-            ",
+            "This backup file isn't compatible with this version of the bot (expected protocol v{}, found v{}). Join our [support server]({}) if you need help migrating an old backup.",
             PROTOCOL,
-            backup_protocol.protocol.unwrap_or_default()
+            backup_protocol.protocol.unwrap_or_default(),
+            embeds::SUPPORT_URL
         )
         .into());
     }
 
     let backup: Backup = serde_json::from_slice(&backup_bytes)?;
 
-    // Restore the repositories
-    let status = ctx.say("Restoring repositories [1/2]...").await?;
+    let status = ctx.say("Restoring repositories (step 1 of 2)...").await?;
 
     let mut inserted_repos = 0;
     let mut updated_repos = 0;
 
     for repo in backup.repos {
-        // Check that the repo exists
         let repo_exists = sqlx::query!(
             "SELECT COUNT(1) FROM repos WHERE id = $1 AND webhook_id = $2 AND guild_id = $3",
             repo.repo_id,
@@ -208,7 +196,6 @@ Please contact our support team.
         .await?;
 
         if repo_exists.count.unwrap_or_default() == 0 {
-            // If it doesn't, create it
             sqlx::query!(
                 "INSERT INTO repos (id, repo_name, webhook_id, guild_id, channel_id, created_by, last_updated_by) VALUES ($1, $2, $3, $4, $5, $6, $7)",
                 repo.repo_id,
@@ -224,7 +211,6 @@ Please contact our support team.
 
             inserted_repos += 1;
         } else {
-            // If it does, update it
             sqlx::query!(
                 "UPDATE repos SET repo_name = $1, channel_id = $2 WHERE id = $3 AND webhook_id = $4 AND guild_id = $5",
                 repo.repo_name,
@@ -240,11 +226,10 @@ Please contact our support team.
         }
     }
 
-    // Restore event modifiers
     status
         .edit(
             ctx,
-            CreateReply::default().content("Restoring event modifiers [2/2]..."),
+            CreateReply::default().content("Restoring event modifiers (step 2 of 2)..."),
         )
         .await?;
 
@@ -252,7 +237,6 @@ Please contact our support team.
     let mut updated_modifiers = 0;
 
     for event_modifier in backup.event_modifiers {
-        // Check that the event modifier exists
         let event_modifier_exists = sqlx::query!(
             "SELECT COUNT(1) FROM event_modifiers WHERE id = $1 AND webhook_id = $2 AND guild_id = $3",
             event_modifier.event_modifier_id,
@@ -263,7 +247,6 @@ Please contact our support team.
         .await?;
 
         if event_modifier_exists.count.unwrap_or_default() == 0 {
-            // If it doesn't, create it
             sqlx::query!(
                 "INSERT INTO event_modifiers (id, repo_id, events, blacklisted, whitelisted, redirect_channel, webhook_id, guild_id, priority, created_by, last_updated_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
                 event_modifier.event_modifier_id,
@@ -283,7 +266,6 @@ Please contact our support team.
 
             inserted_modifiers += 1;
         } else {
-            // If it does, update it
             sqlx::query!(
                 "UPDATE event_modifiers SET repo_id = $1, events = $2, blacklisted = $3, whitelisted = $4, redirect_channel = $5, priority = $6, last_updated_by = $7 WHERE id = $8 AND webhook_id = $9 AND guild_id = $10",
                 event_modifier.repo_id,
@@ -307,20 +289,14 @@ Please contact our support team.
     status
         .edit(
             ctx,
-            CreateReply::default().content(format!(
-                r#"
-**Summary**
-
-- **Inserted repos:** {inserted_repos}
-- **Updated repos:** {updated_repos}
-- **Inserted event modifiers:** {inserted_modifiers}
-- **Updated event modifiers:** {updated_modifiers}
-"#,
-                inserted_repos = inserted_repos,
-                updated_repos = updated_repos,
-                inserted_modifiers = inserted_modifiers,
-                updated_modifiers = updated_modifiers
-            )),
+            CreateReply::default().content("").embed(
+                embeds::base()
+                    .title("Restore complete")
+                    .field("Repos inserted", inserted_repos.to_string(), true)
+                    .field("Repos updated", updated_repos.to_string(), true)
+                    .field("Modifiers inserted", inserted_modifiers.to_string(), true)
+                    .field("Modifiers updated", updated_modifiers.to_string(), true),
+            ),
         )
         .await?;
 
