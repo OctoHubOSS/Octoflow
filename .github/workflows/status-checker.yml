@@ -1,0 +1,21 @@
+name: Status Checker Build & Test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build_and_test:
+    name: Status Checker
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: status-checker
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - run: go build -v ./...
+      - run: go vet ./...
+      - run: go test -v ./...

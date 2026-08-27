@@ -34,6 +34,18 @@ moves forward.
   request rather than just at login.
 - `ROADMAP.md` - a running, non-committal list of feature ideas under
   consideration for future releases.
+- `status-checker/`: a standalone Go service replacing the GitHub
+  Actions-based external status check. Runs as its own long-lived process
+  (deployable to any VM or Dokploy via its included `Dockerfile`), checks
+  `/api/health` on its own schedule, and serves the same NDJSON history
+  format over plain HTTP instead of committing it to git - built because
+  GitHub's scheduled workflows proved unreliable (silently delayed or
+  dropped runs). The docs site now reads from `EXTERNAL_STATUS_HISTORY_URL`
+  when set, falling back to the old GitHub raw URL otherwise, so cutover
+  needs no code changes.
+- CI: `webserver.yml` and `status-checker.yml` GitHub Actions workflows,
+  building and testing the Go webserver and the new status-checker service
+  the same way `rust.yml` already does for the bot.
 
 ### Changed
 - `/help`'s quick-links are now the last page of the command pagination

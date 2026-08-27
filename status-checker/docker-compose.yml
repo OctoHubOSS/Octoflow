@@ -1,0 +1,16 @@
+services:
+  status-checker:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    environment:
+      TARGET_URL: https://v2.gitlogs.xyz
+      CHECK_INTERVAL: 5m
+      CHECK_TIMEOUT: 10s
+      MAX_LINES: "30000"
+    volumes:
+      - status-data:/data
+
+volumes:
+  status-data:
