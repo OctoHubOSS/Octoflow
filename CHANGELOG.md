@@ -9,6 +9,8 @@ moves forward.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-08-27
+
 ### Added
 - Dashboard: Discord OAuth-gated web UI (`octoflow.ca/dashboard`) for viewing
   and managing webhooks, linked repos, and event modifiers without needing
@@ -21,9 +23,16 @@ moves forward.
   uptime history. Replaces the previous external status page.
 - Live stats page (`octoflow.ca/stats`): server/user/shard counts pulled
   directly from the bot.
+- Changelog page (`octoflow.ca/changelog`), rendered straight from this file.
 - `/api/health` and `/api/status/history` endpoints, backed by a new
   `bot_heartbeat` table (updated by the bot every minute) and a
   `status_snapshots` table populated by a background health-check job.
+- External status checker: a GitHub Actions job hits `/api/health` from
+  outside our own infrastructure every 5 minutes and records the result to
+  `status-history.ndjson`. It fills in gaps on the status page for the one
+  case the in-process checker structurally can't record: the webserver or
+  its database being fully down (nothing left running to write the outage
+  down).
 - Quick-links section (docs, status, dashboard, support server) appended to
   `/help` and `/simplehelp`.
 - Terms of Service and Privacy Policy pages.
@@ -41,11 +50,16 @@ moves forward.
   labels.
 - Error and confirmation messages across core commands now say what to do
   next (which command to run) instead of just stating the problem.
+- `/help`'s paginated command list is now built in-house instead of
+  depending on the third-party `botox` crate. `/simplehelp` is unaffected -
+  it already used poise's own built-in help renderer.
 
 ### Fixed
 - Documentation and troubleshooting guidance corrected to match current bot
   behavior (event modifier priority ordering, the real 206-status cause,
   DM-failure rollback behavior on `/newhook` and `/resetsecret`).
+- A long tooltip on the status page's uptime history could force the whole
+  page to scroll horizontally on mobile.
 
 ## [2.0.0] - 2026-08-25
 
