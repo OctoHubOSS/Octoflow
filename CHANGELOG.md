@@ -34,9 +34,12 @@ moves forward.
   limit, each choice labeled with its comment/repo name/event summary
   alongside the ID.
 - Dead-webhook detection: a webhook with at least one repo linked but no
-  event in 14+ days gets a one-time DM nudge (via the webserver's own
-  Discord REST client) pointing at `/list` and `/resetsecret`, at most
-  once every 30 days per webhook via a new `webhooks.last_nudged_at`
+  event in 14+ days gets automatically marked broken (same flag `/edithook
+  broken:true` already sets) and a one-time DM via the webserver's own
+  Discord REST client explaining why, pointing at `/list` and
+  `/resetsecret` to fix it and `/edithook broken:false` to re-enable it.
+  Fully reversible, and marking it broken is what stops the checker from
+  ever re-nagging about the same webhook. New `webhooks.last_nudged_at`
   column.
 - `/testevent`: preview an event's rendered embed and see which channel(s)
   it would route to, without waiting for a real GitHub delivery. Covers

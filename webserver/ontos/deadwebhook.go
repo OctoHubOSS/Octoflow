@@ -93,14 +93,15 @@ func nudgeDeadWebhook(c deadWebhookCandidate) {
 	}
 
 	embed := &discordgo.MessageEmbed{
-		Title: "One of your webhooks looks inactive",
+		Title: "One of your webhooks was marked broken",
 		Description: fmt.Sprintf(
-			"Your webhook **%s** (`%s`) hasn't received any GitHub events in over 14 days %s. "+
+			"Your webhook **%s** (`%s`) hasn't received any GitHub events in over 14 days %s, "+
+				"so it's been automatically marked broken (it will no longer try to process events). "+
 				"This usually means the payload URL or secret in the GitHub repo/org's webhook settings "+
 				"is missing, wrong, or was removed.\n\n"+
-				"Check it with `/list`, or rotate the secret with `/resetsecret` if you suspect it's out of sync. "+
-				"If this webhook is intentionally quiet, there's nothing to do - you won't be nudged again for 30 days either way.",
-			comment, c.id, sinceText,
+				"Check it with `/list`, and rotate the secret with `/resetsecret` if you suspect it's out of sync. "+
+				"Once it's fixed, run `/edithook id:%s broken:false` to turn it back on.",
+			comment, c.id, sinceText, c.id,
 		),
 		Color: 0xfab219,
 	}
@@ -110,7 +111,7 @@ func nudgeDeadWebhook(c deadWebhookCandidate) {
 		return
 	}
 
-	if _, err := state.Pool.Exec(state.Context, "UPDATE "+state.TableWebhooks+" SET last_nudged_at = NOW() WHERE id = $1", c.id); err != nil {
-		state.Logger.Error("Failed to update last_nudged_at", zap.Error(err), zap.String("webhookID", c.id))
+	if _, err := state.Pool.Exec(state.Context, "UPDATE "+state.TableWebhooks+" SET broken = true, last_nudged_at = NOW() WHERE id = $1", c.id); err != nil {
+		state.Logger.Error("Failed to mark dead webhook broken", zap.Error(err), zap.String("webhookID", c.id))
 	}
 }
