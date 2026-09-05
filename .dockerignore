@@ -1,0 +1,8 @@
+.git
+.github
+bot/target
+webserver
+status-checker
+scripts
+*.md
+!CHANGELOG.md
