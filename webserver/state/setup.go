@@ -172,6 +172,7 @@ func ApplyMigrations() {
 
 		ALTER TABLE `+TableWebhooks+` ADD COLUMN IF NOT EXISTS broken BOOLEAN NOT NULL DEFAULT false;
 		ALTER TABLE `+TableWebhooks+` ADD COLUMN IF NOT EXISTS batch_events BOOLEAN NOT NULL DEFAULT false;
+		ALTER TABLE `+TableWebhooks+` ADD COLUMN IF NOT EXISTS last_nudged_at TIMESTAMPTZ;
 		ALTER TABLE `+TableRepos+` ADD COLUMN IF NOT EXISTS use_threads BOOLEAN NOT NULL DEFAULT false;
 
 		CREATE TABLE IF NOT EXISTS `+TableBotHeartbeat+` (

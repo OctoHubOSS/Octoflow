@@ -20,6 +20,7 @@ func main() {
 	defer state.Close()
 
 	go ontos.StartStatusSnapshotter()
+	go ontos.StartDeadWebhookChecker()
 
 	r := chi.NewMux()
 
@@ -50,6 +51,7 @@ func main() {
 		r.Delete("/webhooks/{id}", ontos.ApiDashboardDeleteWebhook)
 		r.Post("/webhooks/{webhookId}/repos", ontos.ApiDashboardCreateRepo)
 		r.Post("/webhooks/{webhookId}/modifiers", ontos.ApiDashboardCreateModifier)
+		r.Post("/webhooks/{webhookId}/simulate", ontos.ApiDashboardSimulateEvent)
 
 		r.Patch("/repos/{id}", ontos.ApiDashboardUpdateRepo)
 		r.Delete("/repos/{id}", ontos.ApiDashboardDeleteRepo)

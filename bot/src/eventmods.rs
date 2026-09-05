@@ -4,7 +4,7 @@ use poise::serenity_prelude::ChannelId;
 use poise::CreateReply;
 use rand::distributions::{Alphanumeric, DistString};
 
-use crate::{Context, Error, embeds};
+use crate::{Context, Error, autocomplete, embeds};
 
 const NO_WEBHOOKS_MSG: &str = "You don't have any webhooks in this guild. Run `/newhook` to create one.";
 
@@ -27,13 +27,16 @@ pub async fn eventmod(_ctx: Context<'_>) -> Result<(), Error> {
 #[allow(clippy::too_many_arguments)]
 pub async fn create(
     ctx: Context<'_>,
-    #[description = "The webhook ID"] webhook_id: String,
+    #[description = "The webhook ID"]
+    #[autocomplete = "autocomplete::webhook_id"]
+    webhook_id: String,
     #[description = "The events to match against, comma/space seperated"] events: String,
     #[description = "Blacklist the events"] blacklisted: bool,
     #[description = "Whitelist the events. Other events will not be allowed"] whitelisted: bool,
     #[description = "Priority. Use 0 for normal priority"] priority: Option<i32>,
     #[description = "Repository ID, will match all if unset"]
     #[lazy]
+    #[autocomplete = "autocomplete::repo_id"]
     repo_id: Option<String>,
     #[description = "Redirect channel ID"] redirect_channel: Option<ChannelId>,
 ) -> Result<(), Error> {
@@ -174,7 +177,9 @@ pub async fn create(
 )]
 pub async fn delete(
     ctx: Context<'_>,
-    #[description = "The modifier ID"] modifier_id: String,
+    #[description = "The modifier ID"]
+    #[autocomplete = "autocomplete::modifier_id"]
+    modifier_id: String,
 ) -> Result<(), Error> {
     let data = ctx.data();
 
@@ -215,7 +220,9 @@ pub async fn delete(
 #[poise::command(slash_command, guild_only, required_permissions = "MANAGE_GUILD")]
 pub async fn list(
     ctx: Context<'_>,
-    #[description = "Filter to a specific webhook ID"] webhook_id: Option<String>,
+    #[description = "Filter to a specific webhook ID"]
+    #[autocomplete = "autocomplete::webhook_id"]
+    webhook_id: Option<String>,
 ) -> Result<(), Error> {
     let data = ctx.data();
 
@@ -280,12 +287,16 @@ pub async fn list(
 #[allow(clippy::too_many_arguments)]
 pub async fn edit(
     ctx: Context<'_>,
-    #[description = "The modifier ID"] modifier_id: String,
+    #[description = "The modifier ID"]
+    #[autocomplete = "autocomplete::modifier_id"]
+    modifier_id: String,
     #[description = "The events to match against, comma/space seperated"] events: Option<String>,
     #[description = "Blacklist the events"] blacklisted: Option<bool>,
     #[description = "Whitelist the events. Other events will not be allowed"] whitelisted: Option<bool>,
     #[description = "Priority. Use 0 for normal priority"] priority: Option<i32>,
-    #[description = "Repository ID. Pass \"none\" to match all repos"] repo_id: Option<String>,
+    #[description = "Repository ID. Pass \"none\" to match all repos"]
+    #[autocomplete = "autocomplete::repo_id"]
+    repo_id: Option<String>,
     #[description = "Redirect channel ID"] redirect_channel: Option<ChannelId>,
 ) -> Result<(), Error> {
     let data = ctx.data();

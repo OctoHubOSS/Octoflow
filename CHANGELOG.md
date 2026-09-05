@@ -9,6 +9,8 @@ moves forward.
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-09-05
+
 ### Added
 - `octoflow.ca/commands`: a searchable, at-a-glance commands page (separate
   from the full `/docs/commands` reference), linked in the site nav.
@@ -16,13 +18,35 @@ moves forward.
   self-reported `online` presence to `POST /bots/stats` on
   `api.omniplex.gg` every 5 minutes. Opt-in via a new `omniplex_token` config
   field - left unset, the task logs once and never posts.
+- Omniplex command list sync: on every Ready, `PUT /bots/{id}/commands`
+  replaces the bot's documented command list on Omniplex with the live
+  set (name, description, usage, category), flattened from the same
+  command tree `/help` reads, skipping anything marked hidden. Shares the
+  `omniplex_token` config field with stats reporting.
+- Omniplex changelog sync: on every Ready, parses the latest released
+  entry straight out of this file (embedded into the binary at compile
+  time) and posts it via `POST /bots/{id}/changelogs`, first checking
+  `GET /bots/{id}/changelogs` so the same version is never posted twice
+  across restarts between releases.
+- Autocomplete for `webhook_id`/`repo_id`/`modifier_id` parameters across
+  every command that takes one, instead of requiring copy-paste from
+  `/list`. Scoped to the current guild, capped at Discord's own 25-choice
+  limit, each choice labeled with its comment/repo name/event summary
+  alongside the ID.
+- Dead-webhook detection: a webhook with at least one repo linked but no
+  event in 14+ days gets a one-time DM nudge (via the webserver's own
+  Discord REST client) pointing at `/list` and `/resetsecret`, at most
+  once every 30 days per webhook via a new `webhooks.last_nudged_at`
+  column.
+- `/testevent`: preview an event's rendered embed and see which channel(s)
+  it would route to, without waiting for a real GitHub delivery. Covers
+  `push`, `pull_request`, `issues`, `issue_comment`, `release`, `star`,
+  `fork`, and `ping` with schema-accurate sample payloads, run through the
+  exact same renderers and event-modifier evaluation real events use.
+  Always a private/ephemeral preview - nothing is ever actually sent to the
+  resolved channel. Backed by a new webserver endpoint,
+  `POST /api/dashboard/webhooks/{id}/simulate`.
 
-### Changed
-- The site nav now shows a signed-in visitor's Discord avatar/username
-  (linking to the dashboard, or to `/admin` with a shield badge if they have
-  admin access) instead of staying anonymous-looking once logged in. Forces
-  the home/docs/legal pages into per-request rendering instead of full
-  static generation, since it reads the session cookie.
 
 ## [2.2.0] - 2026-08-26
 

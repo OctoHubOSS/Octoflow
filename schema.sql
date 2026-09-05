@@ -13,7 +13,8 @@ CREATE TABLE webhooks (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_by TEXT NOT NULL,
     last_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_updated_by TEXT NOT NULL
+    last_updated_by TEXT NOT NULL,
+    last_nudged_at TIMESTAMPTZ
 );
 
 CREATE TABLE repos (

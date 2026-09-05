@@ -4,7 +4,7 @@ use log::error;
 use poise::{serenity_prelude::{CreateMessage, ChannelId, CreateEmbedFooter}, CreateReply};
 use rand::distributions::{Alphanumeric, DistString};
 
-use crate::{Context, Error, config, embeds};
+use crate::{Context, Error, autocomplete, config, embeds};
 
 const NO_WEBHOOKS_MSG: &str = "You don't have any webhooks yet. Run `/newhook` to create one.";
 
@@ -204,7 +204,9 @@ pub async fn newhook(
 #[poise::command(slash_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
 pub async fn edithook(
     ctx: Context<'_>,
-    #[description = "The webhook ID"] id: String,
+    #[description = "The webhook ID"]
+    #[autocomplete = "autocomplete::webhook_id"]
+    id: String,
     #[description = "The comment for the webhook"]
     #[max_length = 200]
     comment: Option<String>,
@@ -279,9 +281,6 @@ pub async fn edithook(
     }
 
     if let Some(batch_events) = batch_events {
-        // Plain (not compile-time-checked) query: batch_events is a brand-new
-        // column not yet in the .sqlx offline cache, and there's no live DB
-        // handy to regenerate it against. Same runtime behavior either way.
         sqlx::query("UPDATE webhooks SET batch_events = $1 WHERE id = $2 AND guild_id = $3")
             .bind(batch_events)
             .bind(&id)
@@ -309,7 +308,9 @@ pub async fn edithook(
 #[poise::command(slash_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
 pub async fn newrepo(
     ctx: Context<'_>,
-    #[description = "The webhook ID to use"] webhook_id: String,
+    #[description = "The webhook ID to use"]
+    #[autocomplete = "autocomplete::webhook_id"]
+    webhook_id: String,
     #[description = "The repo owner or organization"] owner: String,
     #[description = "The repo name"] name: String,
     #[description = "The channel to send to"] channel: ChannelId,
@@ -393,7 +394,9 @@ pub async fn newrepo(
 #[poise::command(slash_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
 pub async fn delhook(
     ctx: Context<'_>,
-    #[description = "The webhook ID"] id: String,
+    #[description = "The webhook ID"]
+    #[autocomplete = "autocomplete::webhook_id"]
+    id: String,
 ) -> Result<(), Error> {
     let data = ctx.data();
 
@@ -424,7 +427,9 @@ pub async fn delhook(
 #[poise::command(slash_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
 pub async fn delrepo(
     ctx: Context<'_>,
-    #[description = "The repo ID"] id: String,
+    #[description = "The repo ID"]
+    #[autocomplete = "autocomplete::repo_id"]
+    id: String,
 ) -> Result<(), Error> {
     let data = ctx.data();
 
@@ -444,7 +449,9 @@ pub async fn delrepo(
 #[poise::command(slash_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
 pub async fn setrepochannel(
     ctx: Context<'_>,
-    #[description = "The repo ID"] id: String,
+    #[description = "The repo ID"]
+    #[autocomplete = "autocomplete::repo_id"]
+    id: String,
     #[description = "The new channel ID"] channel: ChannelId,
 ) -> Result<(), Error> {
     let data = ctx.data();
@@ -479,7 +486,9 @@ pub async fn setrepochannel(
 #[poise::command(slash_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
 pub async fn resetsecret(
     ctx: Context<'_>,
-    #[description = "The webhook ID"] id: String,
+    #[description = "The webhook ID"]
+    #[autocomplete = "autocomplete::webhook_id"]
+    id: String,
 ) -> Result<(), Error> {
     let data = ctx.data();
 
@@ -553,7 +562,9 @@ pub async fn resetsecret(
 #[poise::command(slash_command, guild_only, guild_cooldown = 60, required_permissions = "MANAGE_GUILD")]
 pub async fn editrepo(
     ctx: Context<'_>,
-    #[description = "The repo ID"] id: String,
+    #[description = "The repo ID"]
+    #[autocomplete = "autocomplete::repo_id"]
+    id: String,
     #[description = "The new repo owner/name (e.g. octocat/Hello-World)"] repo_name: Option<String>,
     #[description = "The new channel to send to"] channel: Option<ChannelId>,
     #[description = "Post PR/issue activity into a thread per number instead of the flat channel"] use_threads: Option<bool>,

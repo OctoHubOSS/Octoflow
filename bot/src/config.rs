@@ -15,6 +15,10 @@ pub struct Config {
     pub api_url: Vec<String>,
     pub proxy_url: Option<String>,
     pub omniplex_token: Option<String>,
+    /// Same shared secret as the webserver's `dashboard_internal_secret` -
+    /// used only by /testevent to call the webserver's simulate endpoint.
+    /// Left unset, /testevent just tells the user it isn't configured.
+    pub dashboard_internal_secret: Option<String>,
 }
 
 impl Default for Config {
@@ -25,6 +29,7 @@ impl Default for Config {
             api_url: vec![String::from("https://v2.gitlogs.xyz")],
             proxy_url: Some(String::from("http://127.0.0.1:3219")),
             omniplex_token: None,
+            dashboard_internal_secret: None,
         }
     }
 }

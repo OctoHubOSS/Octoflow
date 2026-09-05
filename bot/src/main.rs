@@ -6,7 +6,7 @@ use log::{error, info, warn};
 use poise::serenity_prelude::{
     self as prelude, FullEvent,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sqlx::postgres::PgPoolOptions;
 use serenity::gateway::ActivityData;
 use std::sync::Arc;
@@ -17,6 +17,8 @@ mod backups;
 mod config;
 mod eventmods;
 mod embeds;
+mod autocomplete;
+mod testevent;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -93,6 +95,11 @@ async fn event_listener<'a>(
                 error!("Failed to register application commands: {:?}", e);
             }
 
+            let bot_id = data_about_bot.user.id;
+            let omniplex_commands = flatten_omniplex_commands(&ctx.options().commands);
+            tokio::spawn(post_omniplex_commands(bot_id, omniplex_commands));
+            tokio::spawn(post_omniplex_changelog(bot_id));
+
             ctx.serenity_context.set_activity(Some(ActivityData::playing("octoflow.ca")));
         }
         _ => {}
@@ -168,6 +175,7 @@ async fn main() {
                 backups::backup(),
                 backups::restore(),
                 eventmods::eventmod(),
+                testevent::testevent(),
             ],
             pre_command: |ctx| {
                 Box::pin(async move {
@@ -239,6 +247,218 @@ async fn heartbeat_task(cache: Arc<prelude::Cache>, pool: sqlx::PgPool) {
         if let Err(e) = result {
             error!("Failed to upsert bot heartbeat: {:?}", e);
         }
+    }
+}
+
+#[derive(Serialize, Clone)]
+struct OmniplexCommandInput {
+    name: String,
+    description: String,
+    usage: String,
+    category: String,
+}
+
+#[derive(Serialize)]
+struct OmniplexUpdateCommands {
+    commands: Vec<OmniplexCommandInput>,
+}
+
+fn truncate_chars(s: &str, max: usize) -> String {
+    s.chars().take(max).collect()
+}
+
+fn build_usage(qualified_name: &str, parameters: &[poise::CommandParameter<Data, Error>]) -> String {
+    let mut usage = format!("/{}", qualified_name);
+    for param in parameters {
+        if param.required {
+            usage.push_str(&format!(" <{}>", param.name));
+        } else {
+            usage.push_str(&format!(" [{}]", param.name));
+        }
+    }
+    truncate_chars(&usage, 200)
+}
+
+fn flatten_omniplex_commands(commands: &[poise::Command<Data, Error>]) -> Vec<OmniplexCommandInput> {
+    let mut out = Vec::new();
+
+    for cmd in commands {
+        if cmd.hide_in_help {
+            continue;
+        }
+
+        if cmd.subcommands.is_empty() {
+            out.push(OmniplexCommandInput {
+                name: truncate_chars(&format!("/{}", cmd.qualified_name), 100),
+                description: truncate_chars(cmd.description.as_deref().unwrap_or(""), 500),
+                usage: build_usage(&cmd.qualified_name, &cmd.parameters),
+                category: truncate_chars(cmd.category.as_deref().unwrap_or("Uncategorized"), 50),
+            });
+        } else {
+            out.extend(flatten_omniplex_commands(&cmd.subcommands));
+        }
+    }
+
+    out
+}
+
+async fn post_omniplex_commands(bot_id: prelude::UserId, commands: Vec<OmniplexCommandInput>) {
+    let Some(token) = config::CONFIG.omniplex_token.clone() else {
+        return;
+    };
+
+    let mut commands = commands;
+    commands.truncate(100);
+    let count = commands.len();
+
+    let client = reqwest::Client::new();
+    let result = client
+        .put(format!("https://api.omniplex.gg/bots/{}/commands", bot_id))
+        .header("Authorization", format!("Bot {}", token))
+        .json(&OmniplexUpdateCommands { commands })
+        .send()
+        .await;
+
+    match result {
+        Ok(resp) if resp.status().is_success() => {
+            info!("Posted {} commands to Omniplex", count);
+        }
+        Ok(resp) => {
+            warn!(
+                "Omniplex commands post rejected: {} {}",
+                resp.status(),
+                resp.text().await.unwrap_or_default()
+            );
+        }
+        Err(e) => warn!("Failed to post Omniplex commands: {:?}", e),
+    }
+}
+
+const CHANGELOG_MD: &str = include_str!("../../CHANGELOG.md");
+
+struct ChangelogEntry {
+    version: String,
+    title: String,
+    content: String,
+}
+
+fn latest_changelog_entry() -> Option<ChangelogEntry> {
+    let mut lines = CHANGELOG_MD.lines().peekable();
+
+    while let Some(line) = lines.next() {
+        let Some(rest) = line.strip_prefix("## [") else { continue };
+        let Some(close) = rest.find(']') else { continue };
+        let version = &rest[..close];
+
+        if version == "Unreleased" {
+            continue;
+        }
+
+        let mut body = String::new();
+        while let Some(&next) = lines.peek() {
+            if next.starts_with("## [") {
+                break;
+            }
+            body.push_str(next);
+            body.push('\n');
+            lines.next();
+        }
+
+        return Some(ChangelogEntry {
+            version: version.to_string(),
+            title: format!("v{}", version),
+            content: body.trim().to_string(),
+        });
+    }
+
+    None
+}
+
+#[derive(Deserialize)]
+struct OmniplexChangelogList {
+    changelogs: Vec<OmniplexChangelogEntry>,
+}
+
+#[derive(Deserialize)]
+struct OmniplexChangelogEntry {
+    version: String,
+}
+
+#[derive(Serialize)]
+struct OmniplexCreateChangelog {
+    title: String,
+    content: String,
+    version: String,
+}
+
+async fn post_omniplex_changelog(bot_id: prelude::UserId) {
+    let Some(token) = config::CONFIG.omniplex_token.clone() else {
+        return;
+    };
+
+    let Some(entry) = latest_changelog_entry() else {
+        warn!("Could not find a released version entry in CHANGELOG.md");
+        return;
+    };
+
+    let client = reqwest::Client::new();
+
+    let existing = client
+        .get(format!("https://api.omniplex.gg/bots/{}/changelogs", bot_id))
+        .send()
+        .await;
+
+    let already_posted = match existing {
+        Ok(resp) if resp.status().is_success() => match resp.json::<OmniplexChangelogList>().await {
+            Ok(list) => list.changelogs.iter().any(|c| c.version == entry.version),
+            Err(e) => {
+                warn!("Failed to parse existing Omniplex changelogs, skipping post to avoid a duplicate: {:?}", e);
+                return;
+            }
+        },
+        Ok(resp) => {
+            warn!(
+                "Failed to fetch existing Omniplex changelogs ({}), skipping post to avoid a duplicate",
+                resp.status()
+            );
+            return;
+        }
+        Err(e) => {
+            warn!("Failed to fetch existing Omniplex changelogs, skipping post to avoid a duplicate: {:?}", e);
+            return;
+        }
+    };
+
+    if already_posted {
+        info!("Omniplex changelog for v{} already posted, skipping", entry.version);
+        return;
+    }
+
+    let payload = OmniplexCreateChangelog {
+        title: truncate_chars(&entry.title, 200),
+        content: truncate_chars(&entry.content, 10000),
+        version: truncate_chars(&entry.version, 50),
+    };
+
+    let result = client
+        .post(format!("https://api.omniplex.gg/bots/{}/changelogs", bot_id))
+        .header("Authorization", format!("Bot {}", token))
+        .json(&payload)
+        .send()
+        .await;
+
+    match result {
+        Ok(resp) if resp.status().is_success() => {
+            info!("Posted changelog v{} to Omniplex", entry.version);
+        }
+        Ok(resp) => {
+            warn!(
+                "Omniplex changelog post rejected: {} {}",
+                resp.status(),
+                resp.text().await.unwrap_or_default()
+            );
+        }
+        Err(e) => warn!("Failed to post Omniplex changelog: {:?}", e),
     }
 }
 
